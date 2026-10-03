@@ -108,8 +108,8 @@ fun SettingsTab(settingsStore: SettingsStore) {
     val savedDc4m by settingsStore.dc4m.collectAsStateWithLifecycle(initialValue = "")
     val savedDc5m by settingsStore.dc5m.collectAsStateWithLifecycle(initialValue = "")
     val savedDc203m by settingsStore.dc203m.collectAsStateWithLifecycle(initialValue = "")
-    val savedPort by settingsStore.port.collectAsStateWithLifecycle(initialValue = "1443")
-    val savedPoolSize by settingsStore.poolSize.collectAsStateWithLifecycle(initialValue = 4)
+    val savedPort by settingsStore.port.collectAsStateWithLifecycle(initialValue = "1445")
+    val savedPoolSize by settingsStore.poolSize.collectAsStateWithLifecycle(initialValue = 1)
     val savedCfEnabled by settingsStore.cfproxyEnabled.collectAsStateWithLifecycle(initialValue = true)
     val savedCustomDomainEnabled by settingsStore.customCfDomainEnabled.collectAsStateWithLifecycle(initialValue = false)
     val savedCustomDomain by settingsStore.customCfDomain.collectAsStateWithLifecycle(initialValue = "")
@@ -289,7 +289,7 @@ fun SettingsTab(settingsStore: SettingsStore) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val poolOptions = listOf(2, 4, 6)
+                    val poolOptions = listOf(1, 2, 4)
                     poolOptions.forEach { size ->
                         PoolChip(
                             label = "$size",
