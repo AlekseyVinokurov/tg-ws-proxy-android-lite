@@ -10,10 +10,10 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.amurcanov.tgwsproxy"
+        applicationId = "com.amurcanov.tgwsproxy.pixel8lite"
         targetSdk = 35
-        versionCode = 123
-        versionName = "1.2.3"
+        versionCode = 124
+        versionName = "1.2.3-pixel8-lite.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
