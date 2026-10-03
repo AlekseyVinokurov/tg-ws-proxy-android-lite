@@ -52,10 +52,10 @@ fun ConnectionTab(settingsStore: SettingsStore) {
     val isReady by settingsStore.isReady.collectAsStateWithLifecycle(initialValue = false)
 
     // Settings
-    val savedPort by settingsStore.port.collectAsStateWithLifecycle(initialValue = "1443")
+    val savedPort by settingsStore.port.collectAsStateWithLifecycle(initialValue = "1444")
     val savedBindIp by settingsStore.bindIp.collectAsStateWithLifecycle(initialValue = "127.0.0.1")
     val savedCfEnabled by settingsStore.cfproxyEnabled.collectAsStateWithLifecycle(initialValue = true)
-    val savedPoolSize by settingsStore.poolSize.collectAsStateWithLifecycle(initialValue = 4)
+    val savedPoolSize by settingsStore.poolSize.collectAsStateWithLifecycle(initialValue = 1)
     val savedSecretKey by settingsStore.secretKey.collectAsStateWithLifecycle(initialValue = "LOADING")
 
     val scope = rememberCoroutineScope()
@@ -89,13 +89,21 @@ fun ConnectionTab(settingsStore: SettingsStore) {
         else -> stringResource(R.string.status_disconnected)
     }
 
-    LaunchedEffect(isRunning, isVerifiedRunning) {
-        if (isVerifiedRunning || !isRunning) {
+    LaunchedEffect(isStarting, isRunning, isVerifiedRunning) {
+        if (isVerifiedRunning || isRunning) {
             isStarting = false
+        } else if (isStarting) {
+            // startForegroundService() can succeed even when native startup later fails
+            // (for example, because the local port is already occupied). Never leave
+            // the UI permanently stuck in "Connecting".
+            kotlinx.coroutines.delay(8_000)
+            if (!isRunning && !isVerifiedRunning) {
+                isStarting = false
+            }
         }
     }
 
-    val port = savedPort.toIntOrNull() ?: 1443
+    val port = savedPort.toIntOrNull() ?: 1444
     val secretForUrl = remember(savedSecretKey) {
         val raw = savedSecretKey.trim()
         if (raw.isNotEmpty() && raw != "LOADING") raw else "00000000000000000000000000000000"
@@ -237,6 +245,27 @@ fun ConnectionTab(settingsStore: SettingsStore) {
                         textAlign = TextAlign.Center
                     )
 
+                    Button(
+                        onClick = {
+                            if (isActiveVisual) disconnectAction() else connectAction()
+                        },
+                        enabled = !isStarting || isRunning,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Text(
+                            if (isActiveVisual) {
+                                stringResource(R.string.stop_proxy)
+                            } else {
+                                stringResource(R.string.start_proxy)
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -249,7 +278,7 @@ fun ConnectionTab(settingsStore: SettingsStore) {
                                     openTelegram(context, proxyUrl)
                                 }
                             },
-                            enabled = isRunning,
+                            enabled = isVerifiedRunning,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
