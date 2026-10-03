@@ -54,14 +54,11 @@ Recommended starting point for Pixel 8: **0**.
 
 If Telegram feels noticeably slower when opening a cold connection, try **1** before increasing further.
 
-### 4. Idle keepalive frequency reduced
+### 4. Native proxy core intentionally left unchanged
 
-For active WebSocket bridges:
+The first Pixel Eco build does **not** modify the Rust networking core or its keepalive timings.
 
-- WebSocket idle ping: **30 s → 60 s**
-- TCP keepalive initial time: **30 s → 60 s**
-
-This is intentionally conservative. The connection still receives periodic liveness traffic, just less frequently.
+Reason: the upstream repository currently relies on a bundled native library for Android, while a clean Rust rebuild from the checked-in sources is incomplete in the forked source tree. For the first battery experiment, keeping the proven bundled `arm64-v8a` library is safer and isolates the Android-side power changes.
 
 ### 5. Automatic update checking disabled by default
 
@@ -124,11 +121,8 @@ Minimum Android API for this flavor:
 The APK is built by GitHub Actions using:
 
 1. Java 17
-2. Rust stable
-3. Android NDK
-4. `cargo-ndk`
-5. Rust native library for `arm64-v8a`
-6. Gradle arm64 debug APK
+2. the upstream bundled `arm64-v8a/libtgwsproxy.so`
+3. Gradle arm64 debug APK
 
 The workflow file is:
 
@@ -214,8 +208,7 @@ Permanent PARTIAL_WAKE_LOCK : removed
 Stats polling                : 60 seconds
 Default WS pool              : 0
 Available WS pool values     : 0, 1, 2, 4
-WS bridge idle ping          : 60 seconds
-TCP keepalive initial time   : 60 seconds
+Native WS/TCP keepalive     : unchanged from upstream
 Background update checks     : disabled by default
 Target APK                   : arm64-v8a / Pixel 8
 ```
