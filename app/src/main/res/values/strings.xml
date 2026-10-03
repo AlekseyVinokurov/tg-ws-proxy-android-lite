@@ -4,7 +4,7 @@
     <string name="status_connected">Connected</string>
     <string name="status_disconnected">Disconnected</string>
     <string name="section_launch">Launch</string>
-    <string name="apply_in_telegram">Apply in Telegram</string>
+    <string name="apply_in_telegram">Apply in Telegram</string>\n    <string name="start_proxy">Start proxy</string>\n    <string name="stop_proxy">Stop proxy</string>
     <string name="copied">Copied</string>
     <string name="copy">Copy</string>
     <string name="direct_mode">Direct</string>
