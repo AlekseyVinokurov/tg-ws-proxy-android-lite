@@ -10,11 +10,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.amurcanov.tgwsproxy"
+        applicationId = "com.amurcanov.tgwsproxy.pixel8stable"
         minSdk = 24
         targetSdk = 35
-        versionCode = 19
-        versionName = "1.1.9"
+        versionCode = 12031
+        versionName = "1.2.0-pixel8-stable.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -129,6 +129,5 @@ dependencies {
 
     // JNA for easy C-shared library calls
     implementation("net.java.dev.jna:jna:5.14.0@aar")
-    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
     implementation("androidx.compose.material:material-icons-extended")
 }
