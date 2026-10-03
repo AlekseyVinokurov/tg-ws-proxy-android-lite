@@ -1,0 +1,65 @@
+name: Build Pixel 8 Stable Go APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ pixel8-stable-go ]
+    paths:
+      - "app/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - ".github/workflows/build-pixel8-stable-go.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Restore proven v1.2.0 arm64 native core
+        shell: bash
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          curl -fL --retry 3             "https://github.com/amurcanov/tg-ws-proxy-android/releases/download/v1.2.0/v1.2.0-release-arm64-v8a.apk"             -o /tmp/upstream-v1.2.0.apk
+          unzip -j /tmp/upstream-v1.2.0.apk             "lib/arm64-v8a/libtgwsproxy.so"             -d app/src/main/jniLibs/arm64-v8a
+          test -s app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
+          sha256sum app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
+
+      - name: Setup Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Compile Kotlin
+        run: gradle :app:compileDebugKotlin --no-daemon
+
+      - name: Build Pixel 8 debug APK
+        run: gradle :app:assembleDebug --no-daemon
+
+      - name: Verify APK contents
+        shell: bash
+        run: |
+          APK=$(find app/build/outputs/apk -name "*arm64-v8a*debug*.apk" -o -name "*universal*debug*.apk" | head -n 1)
+          if [ -z "$APK" ]; then
+            APK=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+          fi
+          test -n "$APK"
+          unzip -l "$APK" | grep "lib/arm64-v8a/libtgwsproxy.so"
+          cp "$APK" tg-ws-proxy-pixel8-stable-go.apk
+          ls -lh tg-ws-proxy-pixel8-stable-go.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tg-ws-proxy-pixel8-stable-go
+          path: tg-ws-proxy-pixel8-stable-go.apk
+          if-no-files-found: error
