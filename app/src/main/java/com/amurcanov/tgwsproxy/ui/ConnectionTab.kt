@@ -43,9 +43,9 @@ fun ConnectionTab(settingsStore: SettingsStore) {
     val isReady by settingsStore.isReady.collectAsStateWithLifecycle(initialValue = false)
 
     // Settings
-    val savedPort by settingsStore.port.collectAsStateWithLifecycle(initialValue = "1443")
+    val savedPort by settingsStore.port.collectAsStateWithLifecycle(initialValue = "1445")
     val savedCfEnabled by settingsStore.cfproxyEnabled.collectAsStateWithLifecycle(initialValue = true)
-    val savedPoolSize by settingsStore.poolSize.collectAsStateWithLifecycle(initialValue = 4)
+    val savedPoolSize by settingsStore.poolSize.collectAsStateWithLifecycle(initialValue = 1)
     val savedSecretKey by settingsStore.secretKey.collectAsStateWithLifecycle(initialValue = "LOADING")
 
     val scope = rememberCoroutineScope()
@@ -89,7 +89,7 @@ fun ConnectionTab(settingsStore: SettingsStore) {
         }
     }
 
-    val port = savedPort.toIntOrNull() ?: 1443
+    val port = savedPort.toIntOrNull() ?: 1445
     val secretForUrl = remember(savedSecretKey) {
         val raw = savedSecretKey.trim()
         if (raw.isNotEmpty() && raw != "LOADING") raw else "00000000000000000000000000000000"
@@ -192,6 +192,19 @@ fun ConnectionTab(settingsStore: SettingsStore) {
                         color = statusColor,
                         textAlign = TextAlign.Center
                     )
+
+                    Button(
+                        onClick = { if (isActiveVisual) disconnectAction() else connectAction() },
+                        enabled = !isStarting || isRunning,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(24.dp)
+                    ) {
+                        Text(
+                            if (isActiveVisual) "Остановить прокси" else "Запустить прокси",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
