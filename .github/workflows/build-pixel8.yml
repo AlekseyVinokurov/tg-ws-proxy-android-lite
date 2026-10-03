@@ -6,9 +6,6 @@ on:
     branches: [ main ]
     paths:
       - "app/**"
-      - "src/**"
-      - "Cargo.toml"
-      - "Cargo.lock"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - ".github/workflows/build-pixel8.yml"
@@ -16,7 +13,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -28,28 +25,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android
-
-      - name: Install Android NDK
+      - name: Verify bundled Pixel 8 native library
         shell: bash
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
-          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
-
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
-
-      - name: Build native arm64 library
-        shell: bash
-        run: |
-          mkdir -p app/src/main/jniLibs/arm64-v8a
-          cargo ndk -t arm64-v8a --platform 24 -o app/src/main/jniLibs build --release
           test -f app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
+          ls -lh app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
 
       - name: Setup Gradle 9.6
         uses: gradle/actions/setup-gradle@v4
