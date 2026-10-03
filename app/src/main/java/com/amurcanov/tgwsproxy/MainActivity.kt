@@ -3,11 +3,8 @@ package com.amurcanov.tgwsproxy
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
-import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -87,7 +84,6 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        checkBatteryOptimizations()
         
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -145,20 +141,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkBatteryOptimizations() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
-                try {
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                    intent.data = Uri.parse("package:$packageName")
-                    startActivity(intent)
-                } catch (_: Exception) {
-                    Toast.makeText(this, "Не удалось запросить работу в фоне", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
+
 }
 
 private data class NavItem(
