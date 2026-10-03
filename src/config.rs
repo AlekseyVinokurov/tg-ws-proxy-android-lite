@@ -12,7 +12,7 @@ pub const DEFAULT_PORT: u16 = 1443;
 pub const TCP_NODELAY: bool = true;
 pub const DEFAULT_RECV_BUF: usize = 256 * 1024;
 pub const DEFAULT_SEND_BUF: usize = 256 * 1024;
-pub const DEFAULT_POOL_SZ: i32 = 0;
+pub const DEFAULT_POOL_SZ: i32 = 4;
 
 // proxy/tg_ws_proxy.py: IP_FAIL_COOLDOWN / DC_FAIL_COOLDOWN / WS_FAIL_TIMEOUT
 pub const IP_FAIL_COOLDOWN: f64 = 3600.0;
@@ -42,7 +42,7 @@ pub const PROTO_PADDED_INTERMEDIATE_INT: u32 = 0xDDDDDDDD;
 pub const RESERVED_FIRST_BYTE: u8 = 0xEF;
 
 pub const BRIDGE_READ_TIMEOUT: Duration = Duration::from_secs(120);
-pub const BRIDGE_PING_INTERVAL: Duration = Duration::from_secs(60);
+pub const BRIDGE_PING_INTERVAL: Duration = Duration::from_secs(30);
 pub const WS_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 pub const WS_CONTROL_TIMEOUT: Duration = Duration::from_secs(2);
 pub const WS_BRIDGE_CHUNK_SIZE: usize = 64 * 1024;
