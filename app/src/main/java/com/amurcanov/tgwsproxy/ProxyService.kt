@@ -33,7 +33,7 @@ class ProxyService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // Saved intent extras for restart on kill / onTaskRemoved
-    private var lastPort: Int = 1443
+    private var lastPort: Int = 1445
     private var lastIps: String = ""
     private var lastPoolSize: Int = 4
     private var lastCfEnabled: Boolean = true
@@ -62,8 +62,8 @@ class ProxyService : Service() {
         private const val WAKELOCK_REFRESH_MS = 25L * 60 * 1000
 
         // Stats/notification update interval
-        private const val STATS_UPDATE_MS = 3_000L
-        private const val NOTIFICATION_MIN_UPDATE_MS = 3_000L
+        private const val STATS_UPDATE_MS = 30_000L
+        private const val NOTIFICATION_MIN_UPDATE_MS = 30_000L
         private const val NATIVE_STOP_WAIT_MS = 3_000L
 
         // Startup verification timeout
@@ -82,7 +82,7 @@ class ProxyService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 LogManager.clearLogs()
-                val port = intent.getIntExtra(EXTRA_PORT, 1443)
+                val port = intent.getIntExtra(EXTRA_PORT, 1445)
                 val ips = intent.getStringExtra(EXTRA_IPS) ?: ""
                 val poolSize = intent.getIntExtra(EXTRA_POOL_SIZE, 4)
                 val cfEnabled = intent.getBooleanExtra(EXTRA_CFPROXY_ENABLED, true)
