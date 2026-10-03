@@ -577,7 +577,7 @@ fn set_sock_opts(stream: &TcpStream) {
     }
     // Аналог Go/Python: keepalive 30s — детект мёртвых соединений на мобиле.
     let sock = socket2::SockRef::from(stream);
-    let ka = socket2::TcpKeepalive::new().with_time(Duration::from_secs(30));
+    let ka = socket2::TcpKeepalive::new().with_time(Duration::from_secs(60));
     let _ = sock.set_tcp_keepalive(&ka);
     // proxy/raw_websocket.py::set_sock_opts — buffer_size из конфига.
     let buf = BUFFER_SIZE.load(std::sync::atomic::Ordering::Relaxed);
