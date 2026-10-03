@@ -1,82 +1,255 @@
-<div align="center">
-  
-  # Telegram WS Proxy Android
-<br>
-  <img src="https://img.shields.io/badge/Android-SDK_24--36-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK">
-  <img src="https://img.shields.io/badge/Rust-1.70+-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust Version">
-  <img src="https://img.shields.io/badge/Kotlin-Native-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin">
-  <a href="https://github.com/amurcanov/tg-ws-proxy-android/stargazers">
-    <img src="https://img.shields.io/github/stars/amurcanov/tg-ws-proxy-android?style=for-the-badge&logo=github&color=ffca28&labelColor=24292e" alt="Stars">
-  </a>
-</div>
-<br>
+# TG WS Proxy Android — Pixel Eco
 
-**TG WS Proxy Android** — это локальный **MTProto-прокси** для Telegram на Android. Приложение помогает частично решать проблемы и в ряде сценариев ускоряет работу мессенджера, перенаправляя трафик через защищённые CloudFlare WebSocket-соединения или напрямую к датацентрам Telegram.
+Battery-focused fork of **amurcanov/tg-ws-proxy-android**, prepared specifically for testing on **Google Pixel 8 (arm64-v8a)**.
 
----
+This fork keeps the original Telegram WS/MTProto proxy logic, Cloudflare routing, DC handling, secret-key flow and fallback behavior, while reducing background work that can keep a Pixel awake and consume battery when Telegram is idle.
 
-<img width="972" height="696" alt="MyCollages (5)" src="https://github.com/user-attachments/assets/7c9b9f2a-fc60-4aee-b93d-db950e24555c" />
+> This is an experimental personal fork. The goal is lower idle battery usage without changing the proxy protocol itself.
 
-## Возможности Android-версии
+## What was changed
 
-- **Современный UI/UX:** приложение полностью адаптировано под актуальный Android-интерфейс на базе Material 3 и Jetpack Compose. Основные действия доступны быстро и без перегруженных экранов.
-- **Интеграция с Telegram:** кнопка **«Применить в Telegram»** автоматически передаёт прокси в совместимые клиенты через `tg://proxy` (AyuGram, Plus Messenger, NekoGram и другие).
-- **Фоновый режим:** используется `Foreground Service`, уведомление о работе сервиса и дополнительная логика удержания соединения, чтобы Android не выгружал прокси слишком агрессивно.
-- **Лог-вьюер:** встроенный просмотр событий в реальном времени помогает быстро понять, что происходит с подключением, маршрутом и пулом соединений.
-- **Темы и палитры:** поддерживаются Dynamic Colors на Android 12+, а также встроенные палитры для более старых устройств.
-- **Авто-обновления внутри приложения:** вручную проверять релизы больше не нужно — когда выйдет новая версия, приложение само покажет уведомление об обновлении.
-- **Раздел «Информация»:** внутри приложения есть расширенная справка по настройкам, особенностям CloudFlare, пулу WS-соединений и ручной конфигурации датацентров.
+### 1. Permanent CPU wake lock removed
 
----
+The upstream Android service held a `PARTIAL_WAKE_LOCK` continuously and refreshed it periodically.
 
-## Как это работает
+Pixel Eco removes:
+
+- the `WAKE_LOCK` permission;
+- permanent `PowerManager.PARTIAL_WAKE_LOCK`;
+- periodic wake-lock refresh.
+
+The proxy still runs as an Android foreground service, but the phone is allowed to enter normal idle/deep-idle states when there is no useful socket activity.
+
+### 2. Background statistics polling reduced
+
+Upstream polled native proxy statistics approximately every **3 seconds**.
+
+Pixel Eco changes this to **60 seconds**.
+
+This reduces Java/Kotlin wakeups and notification churn while keeping basic traffic/session statistics available.
+
+### 3. WebSocket preconnect pool defaults to 0
+
+Upstream default:
 
 ```text
-Telegram Android → Локальный MTProto (по умолчанию 127.0.0.1:1443) → TG WS Proxy → WSS (через CloudFlare или напрямую) → Telegram DC
+WS pool = 4
 ```
 
-1. Приложение поднимает локальный MTProto-прокси средствами нативного движка на языке **Rust**.
-2. Перехватывает подключения Telegram через локальный порт и сгенерированный секретный ключ.
-3. Извлекает `DC ID` из исходного пакета и устанавливает защищённое WebSocket (`TLS`) соединение с нужным датацентром, при необходимости проксируя трафик через CloudFlare.
-4. Использует пул соединений, keepalive-механику и fallback-сценарии для более устойчивой работы в реальных сетевых условиях.
+Pixel Eco default:
 
-## Быстрый старт
+```text
+WS pool = 0
+```
 
-1. Скачайте актуальный `APK` со **[страницы релизов](https://github.com/amurcanov/tg-ws-proxy-android/releases)**.
-2. Установите приложение на ваш Android-смартфон.
-3. Откройте **TG WS Proxy Android**.
-4. Ознакомьтесь со справкой внутри приложения.
-5. Нажмите **«Запустить прокси»** — появится уведомление о работе в фоновом режиме.
-6. Нажмите **«Применить в Telegram»** — откроется Telegram-клиент, где останется только подтвердить подключение.
+The Rust core already supports `pool_size <= 0` as “preconnect disabled”, so this fork uses the existing mechanism instead of inventing a new one.
 
----
+The settings screen now offers:
 
-# 🎦 Видео гайд по установке и использованию
+```text
+0 / 1 / 2 / 4
+```
 
-<div align="center">
+Recommended starting point for Pixel 8: **0**.
 
-<img width="1376" height="768" alt="578516258-6b2df494-de8d-44a2-a281-389fc7551a7c" src="https://github.com/user-attachments/assets/ed1449d4-0a14-4b46-8f35-b787bdee3e32" />
+If Telegram feels noticeably slower when opening a cold connection, try **1** before increasing further.
 
-<br><br>
+### 4. Idle keepalive frequency reduced
 
-[**Смотреть на YouTube**](https://youtu.be/RP4RwyEHpwc) | [**Смотреть в Telegram**](https://t.me/avencoreschat/506796)
+For active WebSocket bridges:
 
-</div>
+- WebSocket idle ping: **30 s → 60 s**
+- TCP keepalive initial time: **30 s → 60 s**
 
----
+This is intentionally conservative. The connection still receives periodic liveness traffic, just less frequently.
 
+### 5. Automatic update checking disabled by default
 
-* **Краши и проблемы с установкой:** если у вас возникают сбои, вылеты или ошибки при установке, пожалуйста, сохраняйте отчёты и ссылки на них. Также ознакомьтесь с блоком `NOTE` ниже и поднимайте полноценные `issue` с полезной технической информацией.
+The fork does not wake periodically just to check upstream releases.
 
+Manual update checks point to this fork:
 
-> [!NOTE]
-> ### Отчёты об ошибках
-> Приложение адаптировано под мобильные сети, однако проблемы с фоновой работой всё ещё возможны из-за системных ограничений или сети.
->
-> Если у вас возникла проблема, сбой или вопрос, пожалуйста, нажмите кнопку **«Собрать отчёт»** внутри приложения и приложите полученные данные к вашему `issue`. Мелкие ошибки в логах при нормально работающем прокси можно игнорировать.
+`AlekseyVinokurov/tg-ws-proxy-android-lite`
 
----
+### 6. Separate application identity
 
-## Лицензия
+Package ID:
 
-Этот форк распространяется под лицензией **GPLv3**. Оригинальный код `tg-ws-proxy` от [Flowseal](https://github.com/Flowseal) доступен под лицензией **MIT**.
+```text
+com.amurcanov.tgwsproxy.pixel8lite
+```
+
+App label:
+
+```text
+TG WS Proxy Pixel Eco
+```
+
+This lets the Pixel Eco build be installed **alongside** the original application for A/B battery testing.
+
+Do not run both proxy services on the same local port at the same time.
+
+## What was NOT changed
+
+The following upstream behavior is intentionally preserved:
+
+- local MTProto proxy model;
+- Telegram integration via local proxy link;
+- Cloudflare WebSocket routing;
+- direct Telegram DC routing;
+- DC selection and media DC handling;
+- secret generation and proxy authentication;
+- Rust networking core and encryption flow;
+- direct/CF fallback logic;
+- foreground-service model;
+- boot/autostart option;
+- logs and diagnostics.
+
+The first test build changes only the main battery-related background behavior so failures are easier to attribute.
+
+## Pixel 8 test build
+
+Target architecture:
+
+```text
+arm64-v8a
+```
+
+Minimum Android API for this flavor:
+
+```text
+24
+```
+
+The APK is built by GitHub Actions using:
+
+1. Java 17
+2. Rust stable
+3. Android NDK
+4. `cargo-ndk`
+5. Rust native library for `arm64-v8a`
+6. Gradle arm64 debug APK
+
+The workflow file is:
+
+```text
+.github/workflows/build-pixel8.yml
+```
+
+Artifact name:
+
+```text
+tg-ws-proxy-pixel8-eco
+```
+
+APK inside the artifact:
+
+```text
+tg-ws-proxy-pixel8-eco.apk
+```
+
+The debug build is signed automatically with the Android debug key generated by the GitHub Actions runner and is intended for personal testing.
+
+## Installation on Pixel 8
+
+1. Download the latest `tg-ws-proxy-pixel8-eco.apk` build artifact.
+2. Install the APK on the Pixel 8.
+3. Open **TG WS Proxy Pixel Eco**.
+4. Keep **WS pool = 0** for the first battery test.
+5. Start the proxy.
+6. Apply the local proxy in Telegram.
+7. Stop the original TG WS Proxy if it is installed and running.
+8. Use Telegram normally.
+
+Because the package ID is different, the original and Pixel Eco versions can coexist.
+
+## Recommended first test
+
+Use one normal day or one overnight period.
+
+Start with:
+
+```text
+WS pool: 0
+Cloudflare: same setting that already works for you
+Autostart: optional
+Pixel battery optimization: leave at the Android default initially
+```
+
+Do not whitelist the app from battery optimization before the first test. The point is to see whether it can remain functional under normal Pixel power management without a permanent wake lock.
+
+### What to check
+
+After several hours, compare:
+
+- whether Telegram remains connected;
+- delay when opening Telegram after a long idle period;
+- message send/receive reliability;
+- image/video loading;
+- reconnection after Wi-Fi ↔ mobile-data transition;
+- reconnection after screen-off idle;
+- battery usage shown for TG WS Proxy Pixel Eco;
+- overall overnight battery drain.
+
+If pool 0 is reliable but cold startup is too slow, test **pool 1** next.
+
+## Expected trade-off
+
+Removing the permanent wake lock and disabling pre-warmed sockets should reduce idle consumption, but Android may occasionally suspend the process more aggressively.
+
+That can cause:
+
+- a short reconnect after long idle;
+- slower first connection;
+- a need to restart the proxy after an unusual network transition.
+
+That behavior is preferable for this experiment to keeping the Pixel CPU and radio needlessly active all day.
+
+If reliability becomes unacceptable, changes should be reintroduced one at a time rather than restoring every upstream battery-expensive behavior at once.
+
+## Current Pixel Eco tuning
+
+```text
+Permanent PARTIAL_WAKE_LOCK : removed
+Stats polling                : 60 seconds
+Default WS pool              : 0
+Available WS pool values     : 0, 1, 2, 4
+WS bridge idle ping          : 60 seconds
+TCP keepalive initial time   : 60 seconds
+Background update checks     : disabled by default
+Target APK                   : arm64-v8a / Pixel 8
+```
+
+## Rollback
+
+The original upstream application is not modified.
+
+If Pixel Eco has a regression:
+
+1. stop Pixel Eco;
+2. disable its local proxy in Telegram;
+3. start the original TG WS Proxy;
+4. re-apply the original local proxy configuration.
+
+Because the applications use different package IDs, uninstalling either one does not require removing the other.
+
+## Source and license
+
+This repository is a fork of:
+
+- **amurcanov/tg-ws-proxy-android**
+- original tg-ws-proxy concept/code lineage credited by upstream to Flowseal
+
+This fork remains under the upstream **GPLv3** licensing terms. See [LICENSE](LICENSE).
+
+Changes in this fork are focused on Android/Pixel battery behavior and build automation. Upstream authorship and attribution remain intact.
+
+## Status
+
+**Pixel Eco test build 1**
+
+Main objective:
+
+> Determine whether TG WS Proxy can remain reliable on Pixel 8 without a permanent wake lock and without four permanently pre-warmed WebSocket connections.
+
+Results should be judged from real Pixel 8 battery statistics and connection reliability before making further power-saving changes.
