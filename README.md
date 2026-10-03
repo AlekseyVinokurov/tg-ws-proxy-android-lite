@@ -1,90 +1,121 @@
-<div align="center">
-  
-  # Telegram WS Proxy Android
-<br>
-  <img src="https://img.shields.io/badge/Android-SDK_24--36-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android SDK">
-  <img src="https://img.shields.io/badge/Go-1.19_--_1.26-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go Version">
-  <img src="https://img.shields.io/badge/Kotlin-Native-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin">
-  <a href="https://github.com/amurcanov/tg-ws-proxy-android/stargazers">
-    <img src="https://img.shields.io/github/stars/amurcanov/tg-ws-proxy-android?style=for-the-badge&logo=github&color=ffca28&labelColor=24292e" alt="Stars">
-  </a>
-</div>
-<br>
+# TG WS Proxy Android — Pixel 8 Stable Go
 
-**TG WS Proxy Android** — это локальный **MTProto-прокси** для Telegram на Android. Приложение помогает частично решать проблемы и в ряде сценариев ускоряет работу мессенджера, перенаправляя трафик через защищённые CloudFlare WebSocket-соединения или напрямую к датацентрам Telegram.
+This branch is the **stability-first Pixel 8 build**.
 
----
+It is based on upstream **v1.2.0**, because real-device reports in the upstream issue tracker show that v1.2.0 restored reliable operation for multiple users after later builds became unstable; one report specifically mentions a **Pixel 8 Pro / Tensor G3**.
 
-<img width="972" height="696" alt="MyCollages (5)" src="https://github.com/user-attachments/assets/7c9b9f2a-fc60-4aee-b93d-db950e24555c" />
+The purpose of this branch is to establish a known-good baseline before trying more aggressive battery changes.
 
-## Возможности Android-версии
+## Why this branch exists
 
-- **Современный UI/UX:** приложение полностью адаптировано под актуальный Android-интерфейс на базе Material 3 и Jetpack Compose. Основные действия доступны быстро и без перегруженных экранов.
-- **Интеграция с Telegram:** кнопка **«Применить в Telegram»** автоматически передаёт прокси в совместимые клиенты через `tg://proxy` (AyuGram, Plus Messenger, NekoGram и другие).
-- **Фоновый режим:** используется `Foreground Service`, уведомление о работе сервиса и дополнительная логика удержания соединения, чтобы Android не выгружал прокси слишком агрессивно.
-- **Лог-вьюер:** встроенный просмотр событий в реальном времени помогает быстро понять, что происходит с подключением, маршрутом и пулом соединений.
-- **Темы и палитры:** поддерживаются Dynamic Colors на Android 12+, а также встроенные палитры для более старых устройств.
-- **Авто-обновления внутри приложения:** вручную проверять релизы больше не нужно — когда выйдет новая версия, приложение само покажет уведомление об обновлении.
-- **Раздел «Информация»:** внутри приложения есть расширенная справка по настройкам, особенностям CloudFlare, пулу WS-соединений и ручной конфигурации датацентров.
-
-## Что нового в версии 1.1.9
-
-* **Багфиксы и стабильность:** Улучшена стабильность ядра, исправлены ошибки автообновлений и работы в Direct-режиме. Удалён DataSync для предотвращения крашей на новых Android.
-* **Редизайн:** Слегка обновлена тёмная тема (добавлены орбы на фон), раздел «Инфо» стал информативнее.
-* **Автозапуск и быстрый доступ:** Добавлена опция автозапуска при загрузке системы и удобный тайл "T" в шторку уведомлений.
-* **Совместимость:** Сборка armeabi-v7a теперь использует Go 1.19 для лучшей работы на старых устройствах.
-* **CloudFlare CDN:** Улучшена логика работы с CF-доменами для стабильного подключения.
-
----
-
-## Как это работает
+The first Pixel Eco experiment based on the newer Rust build did start on the Pixel 8, but real use showed repeated Cloudflare timeouts such as:
 
 ```text
-Telegram Android → Локальный MTProto (по умолчанию 127.0.0.1:1443) → TG WS Proxy → WSS (через CloudFlare или напрямую) → Telegram DC
+CF fail kws2.<domain> via <Cloudflare IP>: timeout
 ```
 
-1. Приложение поднимает локальный MTProto-прокси средствами нативного движка на языке **Go**.
-2. Перехватывает подключения Telegram через локальный порт и сгенерированный секретный ключ.
-3. Извлекает `DC ID` из исходного пакета и устанавливает защищённое WebSocket (`TLS`) соединение с нужным датацентром, при необходимости проксируя трафик через CloudFlare.
-4. Использует пул соединений, keepalive-механику и fallback-сценарии для более устойчивой работы в реальных сетевых условиях.
+Those failures are not unique to our fork. The same pattern is reported in upstream Android issues with v1.2.x and Cloudflare routing.
 
-## Быстрый старт
+For the next test we therefore changed strategy:
 
-1. Скачайте актуальный `APK` со **[страницы релизов](https://github.com/amurcanov/tg-ws-proxy-android/releases)**.
-2. Установите приложение на ваш Android-смартфон.
-3. Откройте **TG WS Proxy Android**.
-4. Ознакомьтесь со справкой внутри приложения.
-5. Нажмите **«Запустить прокси»** — появится уведомление о работе в фоновом режиме.
-6. Нажмите **«Применить в Telegram»** — откроется Telegram-клиент, где останется только подтвердить подключение.
+- use the older/proven **v1.2.0 Go native core**;
+- keep Android foreground-service/wakelock behavior required for stability;
+- reduce only low-risk background work;
+- use a small WS pool;
+- leave aggressive power-saving changes for a later build.
 
----
+## Pixel 8 Stable configuration
 
-# 🎦 Видео гайд по установке и использованию
+Default settings:
 
-<div align="center">
+```text
+Local address : 127.0.0.1
+Port          : 1445
+WS pool       : 1
+Cloudflare    : enabled
+Architecture  : arm64-v8a
+```
 
-<img width="1376" height="768" alt="578516258-6b2df494-de8d-44a2-a281-389fc7551a7c" src="https://github.com/user-attachments/assets/ed1449d4-0a14-4b46-8f35-b787bdee3e32" />
+Port 1445 is used so this build can coexist with upstream/previous test builds using 1443 or 1444.
 
-<br><br>
+## Changes relative to upstream v1.2.0
 
-[**Смотреть на YouTube**](https://youtu.be/RP4RwyEHpwc) | [**Смотреть на Dzen**](https://dzen.ru/video/watch/69dcda2bd250b343c4de82ac) | [**Смотреть на VK Video**](https://vkvideo.ru/video-234234162_456239074) | [**Смотреть в Telegram**](https://t.me/avencoreschat/506796)
+- separate Android package: `com.amurcanov.tgwsproxy.pixel8stable`;
+- app label: **TG WS Proxy Pixel Stable**;
+- explicit **Запустить прокси / Остановить прокси** button;
+- default local port **1445**;
+- default WS pool **1** instead of 4;
+- statistics/notification polling reduced from **3 seconds to 30 seconds**;
+- LeakCanary removed from the test build;
+- automatic request to exempt the app from Android battery optimization removed.
 
-</div>
+### Intentionally retained
 
----
+For this stability baseline, the permanent wake lock from v1.2.0 is retained.
 
+That is deliberate. Removing it was one of the major changes in the first Eco experiment, and upstream users also report foreground failures when Android suspends the proxy. Once this Stable build proves reliable on the Pixel 8, wake-lock behavior can be optimized separately and measured instead of changing several variables at once.
 
-* **Краши и проблемы с установкой:** если у вас возникают сбои, вылеты или ошибки при установке, пожалуйста, сохраняйте отчёты и ссылки на них. Также ознакомьтесь с блоком `NOTE` ниже и поднимайте полноценные `issue` с полезной технической информацией.
+## Native core
 
+The build workflow downloads the official upstream **v1.2.0 arm64 APK** and extracts its proven:
 
-> [!NOTE]
-> ### Отчёты об ошибках
-> Приложение адаптировано под мобильные сети, однако проблемы с фоновой работой всё ещё возможны из-за системных ограничений или сети.
->
-> Если у вас возникла проблема, сбой или вопрос, пожалуйста, нажмите кнопку **«Собрать отчёт»** внутри приложения и приложите полученные данные к вашему `issue`. Мелкие ошибки в логах при нормально работающем прокси можно игнорировать.
+```text
+lib/arm64-v8a/libtgwsproxy.so
+```
 
----
+Our Kotlin app is then compiled around that exact native core.
 
-## Лицензия
+This avoids rebuilding a different networking implementation and gives the test the same Go proxy engine that shipped in the working upstream release.
 
-Этот форк распространяется под лицензией **GPLv3**. Оригинальный код `tg-ws-proxy` от [Flowseal](https://github.com/Flowseal) доступен под лицензией **MIT**.
+## Build verification
+
+GitHub Actions performs:
+
+1. checkout of `pixel8-stable-go`;
+2. Java 17 setup;
+3. download of official upstream v1.2.0 arm64 APK;
+4. extraction and non-empty check of `libtgwsproxy.so`;
+5. Kotlin compilation;
+6. APK assembly;
+7. verification that the resulting APK actually contains `lib/arm64-v8a/libtgwsproxy.so`;
+8. artifact upload.
+
+## Pixel 8 test procedure
+
+1. Install **TG WS Proxy Pixel Stable**.
+2. Stop other local TG WS Proxy variants.
+3. Keep:
+   - port 1445;
+   - WS pool 1;
+   - Cloudflare enabled.
+4. Press **Запустить прокси**.
+5. Apply it in Telegram.
+6. Confirm text/media work for several minutes.
+7. Turn the screen off for 15–30 minutes.
+8. Re-open Telegram and test messages/media again.
+9. Test Wi-Fi → mobile data and mobile data → Wi-Fi.
+10. Only after stability is confirmed, evaluate battery drain.
+
+## Interpreting Cloudflare errors
+
+Occasional individual CF domain failures can be normal because the proxy rotates/falls back across domains.
+
+The important distinction is:
+
+- **some domains fail, Telegram still works** → fallback is doing its job;
+- **all/most domains repeatedly time out and Telegram stalls** → this is a route/Cloudflare/network problem, not a local-port UI problem.
+
+If the Stable Go build still shows sustained CF failure, the next engineering step is not to remove more Android power controls. It is to improve CF route selection/fallback or use a dedicated CF endpoint.
+
+## Branches
+
+- `main` — Pixel Eco/Rust experiment.
+- `pixel8-stable-go` — stability-first Pixel 8 build using upstream v1.2.0 Go core.
+
+## License
+
+GPLv3, preserving upstream licensing and attribution.
+
+Upstream Android project: **amurcanov/tg-ws-proxy-android**
+
+Original project lineage: **Flowseal/tg-ws-proxy**
