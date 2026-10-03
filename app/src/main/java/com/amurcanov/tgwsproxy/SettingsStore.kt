@@ -78,8 +78,8 @@ class SettingsStore(private val context: Context) {
     val dc4m: Flow<String> = context.dataStore.data.map { it[stringPreferencesKey("dc4m")] ?: "" }
     val dc5m: Flow<String> = context.dataStore.data.map { it[stringPreferencesKey("dc5m")] ?: "" }
     val dc203m: Flow<String> = context.dataStore.data.map { it[stringPreferencesKey("dc203m")] ?: "" }
-    val port: Flow<String> = context.dataStore.data.map { it[Keys.PORT] ?: "1443" }
-    val poolSize: Flow<Int> = context.dataStore.data.map { it[Keys.POOL_SIZE] ?: 4 }
+    val port: Flow<String> = context.dataStore.data.map { it[Keys.PORT] ?: "1445" }
+    val poolSize: Flow<Int> = context.dataStore.data.map { it[Keys.POOL_SIZE] ?: 1 }
     val cfproxyEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.CFPROXY_ENABLED] ?: true }
     val customCfDomainEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.CUSTOM_CF_DOMAIN_ENABLED] ?: false }
     val customCfDomain: Flow<String> = context.dataStore.data.map { it[Keys.CUSTOM_CF_DOMAIN] ?: "" }
