@@ -1,5 +1,8 @@
 name: Build Pixel 8 Stable Go APK
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   push:
@@ -63,3 +66,20 @@ jobs:
           name: tg-ws-proxy-pixel8-stable-go
           path: tg-ws-proxy-pixel8-stable-go.apk
           if-no-files-found: error
+
+
+      - name: Publish GitHub Release APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="pixel8-stable-go-v1"
+          TITLE="TG WS Proxy Pixel 8 Stable Go"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" tg-ws-proxy-pixel8-stable-go.apk --clobber
+          else
+            gh release create "$TAG" tg-ws-proxy-pixel8-stable-go.apk \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes "Pixel 8 / Android 17 test build. Based on the proven upstream v1.2.0 arm64 native core. Default port 1445, WS pool 1. Stability-first build before battery tuning."
+          fi
