@@ -1,3 +1,63 @@
+# Pixel 8 Stable Go — test branch
+
+This branch is the **stability baseline for Google Pixel 8 / arm64-v8a**.
+
+## Why this branch exists
+
+The first Pixel Eco builds used the newer Rust native core from the current Android fork. On the test Pixel 8 the local proxy started, but Cloudflare connections then degraded into repeated errors such as:
+
+```text
+CF fail kws2.<domain>.co.uk via <Cloudflare IP>: timeout
+```
+
+The same failure pattern is reported in the upstream Android project, including a Pixel 8 Pro report where users confirmed that **v1.2.0 worked while later builds did not**.
+
+Therefore this branch deliberately returns to the proven **v1.2.0 arm64 native core** for the first stability test.
+
+## Pixel-specific changes
+
+- Target device: **Google Pixel 8 / arm64-v8a**
+- Native proxy core: **upstream v1.2.0 arm64**
+- Separate application id: `com.amurcanov.tgwsproxy.pixel8stable`
+- Separate app label: **TG WS Proxy Pixel Stable**
+- Default local port: **1445** to avoid conflicts with other installed builds
+- Default WS pool: **1**
+- Available pool values: **1 / 2 / 4**
+- LeakCanary removed from the test APK
+- Automatic request to disable Android battery optimization removed
+- Explicit **Start proxy / Stop proxy** control retained
+- Cloudflare mode remains available and enabled by default
+
+## Important battery note
+
+This is a **stability-first** build, not the final low-power build. The v1.2.0 foreground service still keeps the upstream wake-lock behavior. That is intentional for this test: first verify that Telegram/Cloudflare stays connected on Pixel 8. After stability is confirmed, battery-saving changes should be introduced one at a time so we can identify which optimization breaks background reliability.
+
+## First test
+
+Use:
+
+```text
+IP: 127.0.0.1
+Port: 1445
+WS pool: 1
+Cloudflare CDN: ON
+Autostart: OFF for the first test
+```
+
+Stop older TG WS Proxy test builds before testing this one. Start **TG WS Proxy Pixel Stable**, wait for the proxy to start, then apply the generated proxy link in Telegram.
+
+Test:
+
+1. messages;
+2. photos/videos;
+3. screen off for 10–20 minutes;
+4. reopen Telegram;
+5. Wi-Fi ↔ mobile-data switch.
+
+If this build remains stable, the next iteration will reduce wake-lock duration/stat polling while keeping the v1.2.0 network core unchanged.
+
+---
+
 # TG WS Proxy Android — Pixel 8 Stable Go
 
 This branch is the **stability-first Pixel 8 build**.
