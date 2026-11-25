@@ -89,6 +89,9 @@ fun SettingsTab(settingsStore: SettingsStore) {
     val savedPoolSize by settingsStore.poolSize.collectAsStateWithLifecycle(initialValue = 1)
     val savedCfEnabled by settingsStore.cfproxyEnabled.collectAsStateWithLifecycle(initialValue = true)
     val savedCfWs80 by settingsStore.cfWs80Fallback.collectAsStateWithLifecycle(initialValue = false)
+    val savedSniExperiment by settingsStore.experimentSniSubdomain.collectAsStateWithLifecycle(initialValue = false)
+    val savedDohExperiment by settingsStore.experimentDohFirst.collectAsStateWithLifecycle(initialValue = false)
+    val savedDiagnostics by settingsStore.diagnosticRecording.collectAsStateWithLifecycle(initialValue = false)
     val savedCustomDomainEnabled by settingsStore.customCfDomainEnabled.collectAsStateWithLifecycle(initialValue = false)
     val savedCustomDomain by settingsStore.customCfDomain.collectAsStateWithLifecycle(initialValue = "")
     val autoStartOnBoot by settingsStore.autoStartOnBoot.collectAsStateWithLifecycle(initialValue = false)
@@ -452,6 +455,68 @@ fun SettingsTab(settingsStore: SettingsStore) {
                         else scope.launch { settingsStore.saveCfWs80Fallback(false) }
                     },
                     enabled = !isRunning && cfEnabled
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            Text(
+                stringResource(com.amurcanov.tgwsproxy.R.string.experiment_section),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_sni_title),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_sni_desc),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = savedSniExperiment,
+                    enabled = !isRunning && cfEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsStore.saveExperimentSniSubdomain(enabled) }
+                    }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_doh_title),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_doh_desc),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = savedDohExperiment,
+                    enabled = !isRunning && cfEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsStore.saveExperimentDohFirst(enabled) }
+                    }
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.diagnostic_title),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.diagnostic_desc),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = savedDiagnostics,
+                    enabled = !isRunning,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsStore.saveDiagnosticRecording(enabled) }
+                    }
                 )
             }
 
