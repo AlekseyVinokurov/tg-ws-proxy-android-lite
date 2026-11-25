@@ -17,7 +17,6 @@ jobs:
     environment: pixel-eco-release
     timeout-minutes: 65
     env:
-      PIXEL_ECO_KEYSTORE_FILE: ${{ runner.temp }}/pixel-eco-release.p12
       PIXEL_ECO_STORE_PASSWORD: ${{ secrets.PIXEL_ECO_RELEASE_KEY_PASSPHRASE }}
       PIXEL_ECO_KEY_PASSWORD: ${{ secrets.PIXEL_ECO_RELEASE_KEY_PASSPHRASE }}
       PIXEL_ECO_REQUIRE_SIGNING: "1"
@@ -31,6 +30,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+
+      - name: Set temporary signing path on hosted runner
+        shell: bash
+        run: echo "PIXEL_ECO_KEYSTORE_FILE=$RUNNER_TEMP/pixel-eco-release.p12" >> "$GITHUB_ENV"
 
       - name: Restore permanent release identity and verify pinned signer
         shell: bash
