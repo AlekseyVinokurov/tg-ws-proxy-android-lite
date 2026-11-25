@@ -105,6 +105,8 @@ pub static CF_WS80_FALLBACK: AtomicBool = AtomicBool::new(false);
 // Independent A/B experiments; defaults preserve the verified base-domain route.
 pub static EXP_TLS_SUBDOMAIN_SNI: AtomicBool = AtomicBool::new(false);
 pub static EXP_DOH_FIRST: AtomicBool = AtomicBool::new(false);
+// Experimental WS/80 HTTP header order; no packet fragmentation or decryption.
+pub static EXP_WS80_HEADERS: AtomicBool = AtomicBool::new(false);
 
 pub struct CfproxyConfig {
     pub user_domain: String,
