@@ -18,6 +18,7 @@ interface ProxyLibrary : Library {
     fun SetCfWs80Fallback(enabled: Int)
     fun SetExperimentalTlsSubdomainSni(enabled: Int)
     fun SetExperimentalDohFirst(enabled: Int)
+    fun SetExperimentalWs80Headers(enabled: Int)
     fun SetCfWorkerDomains(domains: String)
     fun SetFakeTlsDomain(domain: String)
     fun SetDisableSecure(v: Int)
