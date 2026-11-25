@@ -37,6 +37,7 @@ class SettingsStore(private val context: Context) {
         val BIND_IP = stringPreferencesKey("bind_ip")
         val POOL_SIZE = intPreferencesKey("pool_size")
         val CFPROXY_ENABLED = booleanPreferencesKey("cfproxy_enabled")
+        val CF_WS80_FALLBACK = booleanPreferencesKey("cf_ws80_fallback")
         val CUSTOM_CF_DOMAIN_ENABLED = booleanPreferencesKey("custom_cf_domain_enabled")
         val CUSTOM_CF_DOMAIN = stringPreferencesKey("custom_cf_domain")
         val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
@@ -83,6 +84,7 @@ class SettingsStore(private val context: Context) {
     val bindIp: Flow<String> = context.dataStore.data.map { it[Keys.BIND_IP] ?: "127.0.0.1" }
     val poolSize: Flow<Int> = context.dataStore.data.map { it[Keys.POOL_SIZE] ?: 1 }
     val cfproxyEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.CFPROXY_ENABLED] ?: true }
+    val cfWs80Fallback: Flow<Boolean> = context.dataStore.data.map { it[Keys.CF_WS80_FALLBACK] ?: false }
     val customCfDomainEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.CUSTOM_CF_DOMAIN_ENABLED] ?: false }
     val customCfDomain: Flow<String> = context.dataStore.data.map { it[Keys.CUSTOM_CF_DOMAIN] ?: "" }
     val autoStartOnBoot: Flow<Boolean> = context.dataStore.data.map { it[Keys.AUTO_START_ON_BOOT] ?: false }
@@ -141,6 +143,10 @@ class SettingsStore(private val context: Context) {
 
     suspend fun saveUpdateCheckIntervalHours(hours: Int) {
         context.dataStore.edit { it[Keys.UPDATE_CHECK_INTERVAL_HOURS] = hours }
+    }
+
+    suspend fun saveCfWs80Fallback(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.CF_WS80_FALLBACK] = enabled }
     }
 
     suspend fun saveAutoStartOnBoot(enabled: Boolean) {
