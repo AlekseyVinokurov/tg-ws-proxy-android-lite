@@ -40,6 +40,7 @@ class SettingsStore(private val context: Context) {
         val CF_WS80_FALLBACK = booleanPreferencesKey("cf_ws80_fallback")
         val EXP_SNI_SUBDOMAIN = booleanPreferencesKey("exp_sni_subdomain")
         val EXP_DOH_FIRST = booleanPreferencesKey("exp_doh_first")
+        val EXP_WS80_HEADERS = booleanPreferencesKey("exp_ws80_headers")
         val DIAG_RECORDING = booleanPreferencesKey("diag_recording")
         val CUSTOM_CF_DOMAIN_ENABLED = booleanPreferencesKey("custom_cf_domain_enabled")
         val CUSTOM_CF_DOMAIN = stringPreferencesKey("custom_cf_domain")
@@ -90,6 +91,7 @@ class SettingsStore(private val context: Context) {
     val cfWs80Fallback: Flow<Boolean> = context.dataStore.data.map { it[Keys.CF_WS80_FALLBACK] ?: false }
     val experimentSniSubdomain: Flow<Boolean> = context.dataStore.data.map { it[Keys.EXP_SNI_SUBDOMAIN] ?: false }
     val experimentDohFirst: Flow<Boolean> = context.dataStore.data.map { it[Keys.EXP_DOH_FIRST] ?: false }
+    val experimentWs80Headers: Flow<Boolean> = context.dataStore.data.map { it[Keys.EXP_WS80_HEADERS] ?: false }
     val diagnosticRecording: Flow<Boolean> = context.dataStore.data.map { it[Keys.DIAG_RECORDING] ?: false }
     val customCfDomainEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.CUSTOM_CF_DOMAIN_ENABLED] ?: false }
     val customCfDomain: Flow<String> = context.dataStore.data.map { it[Keys.CUSTOM_CF_DOMAIN] ?: "" }
@@ -153,6 +155,10 @@ class SettingsStore(private val context: Context) {
 
     suspend fun saveExperimentSniSubdomain(enabled: Boolean) {
         context.dataStore.edit { it[Keys.EXP_SNI_SUBDOMAIN] = enabled }
+    }
+
+    suspend fun saveExperimentWs80Headers(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.EXP_WS80_HEADERS] = enabled }
     }
 
     suspend fun saveExperimentDohFirst(enabled: Boolean) {
