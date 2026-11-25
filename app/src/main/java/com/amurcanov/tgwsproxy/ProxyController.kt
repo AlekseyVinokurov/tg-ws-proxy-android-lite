@@ -32,6 +32,7 @@ object ProxyController {
         val cfWs80Fallback = settingsStore.cfWs80Fallback.first()
         val experimentSniSubdomain = settingsStore.experimentSniSubdomain.first()
         val experimentDohFirst = settingsStore.experimentDohFirst.first()
+        val experimentWs80Headers = settingsStore.experimentWs80Headers.first()
         val diagnosticRecording = settingsStore.diagnosticRecording.first()
         val customCfDomainEnabled = settingsStore.customCfDomainEnabled.first()
         val customCfDomain = settingsStore.customCfDomain.first().trim()
@@ -69,6 +70,7 @@ object ProxyController {
                 putExtra(ProxyService.EXTRA_CF_WS80_FALLBACK, cfEnabled && cfWs80Fallback)
                 putExtra(ProxyService.EXTRA_EXP_SNI_SUBDOMAIN, cfEnabled && experimentSniSubdomain)
                 putExtra(ProxyService.EXTRA_EXP_DOH_FIRST, cfEnabled && experimentDohFirst)
+                putExtra(ProxyService.EXTRA_EXP_WS80_HEADERS, cfEnabled && cfWs80Fallback && experimentWs80Headers)
                 putExtra(ProxyService.EXTRA_DIAG_RECORDING, diagnosticRecording)
                 putExtra(ProxyService.EXTRA_CFPROXY_PRIORITY, true)
                 putExtra(
