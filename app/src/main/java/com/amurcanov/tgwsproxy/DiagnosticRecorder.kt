@@ -1,6 +1,8 @@
 package com.amurcanov.tgwsproxy
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
 import java.io.File
@@ -97,11 +99,23 @@ object DiagnosticRecorder {
             if (file.exists()) file.readText() else "No recorded diagnostics. Enable recording before starting proxy."
         }
         val stats = try { NativeProxy.getStats().orEmpty() } catch (_: Throwable) { "not available" }
+        val network = try {
+            val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val caps = manager.getNetworkCapabilities(manager.activeNetwork)
+            when {
+                caps == null -> "none"
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
+                else -> "other"
+            }
+        } catch (_: Exception) { "unknown" }
         return buildString {
             appendLine("TG WS Proxy Pixel Eco diagnostics")
             appendLine("version=${BuildConfig.VERSION_NAME} versionCode=${BuildConfig.VERSION_CODE}")
             appendLine("device=${Build.MANUFACTURER} ${Build.MODEL} sdk=${Build.VERSION.SDK_INT}")
             appendLine("timestamp=${Date()}")
+            appendLine("network=$network")
             appendLine("current_stats=${sanitize(stats)}")
             appendLine("NOTE: Transport IPs/hosts and network metadata may be present. Review before sharing.")
             appendLine("--- log ---")
