@@ -14,7 +14,6 @@ jobs:
   release:
     if: github.repository == 'AlekseyVinokurov/tg-ws-proxy-android-lite' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    environment: pixel-eco-release
     timeout-minutes: 65
     env:
       PIXEL_ECO_STORE_PASSWORD: ${{ secrets.PIXEL_ECO_RELEASE_KEY_PASSPHRASE }}
