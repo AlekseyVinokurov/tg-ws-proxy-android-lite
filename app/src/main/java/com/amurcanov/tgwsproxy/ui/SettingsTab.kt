@@ -91,6 +91,7 @@ fun SettingsTab(settingsStore: SettingsStore) {
     val savedCfWs80 by settingsStore.cfWs80Fallback.collectAsStateWithLifecycle(initialValue = false)
     val savedSniExperiment by settingsStore.experimentSniSubdomain.collectAsStateWithLifecycle(initialValue = false)
     val savedDohExperiment by settingsStore.experimentDohFirst.collectAsStateWithLifecycle(initialValue = false)
+    val savedHttpExperiment by settingsStore.experimentWs80Headers.collectAsStateWithLifecycle(initialValue = false)
     val savedDiagnostics by settingsStore.diagnosticRecording.collectAsStateWithLifecycle(initialValue = false)
     val savedCustomDomainEnabled by settingsStore.customCfDomainEnabled.collectAsStateWithLifecycle(initialValue = false)
     val savedCustomDomain by settingsStore.customCfDomain.collectAsStateWithLifecycle(initialValue = "")
@@ -497,6 +498,24 @@ fun SettingsTab(settingsStore: SettingsStore) {
                     enabled = !isRunning && cfEnabled,
                     onCheckedChange = { enabled ->
                         scope.launch { settingsStore.saveExperimentDohFirst(enabled) }
+                    }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_http_title),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_http_desc),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = savedHttpExperiment,
+                    enabled = !isRunning && cfEnabled && savedCfWs80,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsStore.saveExperimentWs80Headers(enabled) }
                     }
                 )
             }
