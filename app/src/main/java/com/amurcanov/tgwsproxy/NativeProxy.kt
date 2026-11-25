@@ -67,6 +67,10 @@ object NativeProxy {
         ProxyLibrary.INSTANCE.SetExperimentalDohFirst(if (enabled) 1 else 0)
     }
 
+    fun setExperimentalWs80Headers(enabled: Boolean) {
+        ProxyLibrary.INSTANCE.SetExperimentalWs80Headers(if (enabled) 1 else 0)
+    }
+
     fun setCfWs80Fallback(enabled: Boolean) {
         try {
             ProxyLibrary.INSTANCE.SetCfWs80Fallback(if (enabled) 1 else 0)
