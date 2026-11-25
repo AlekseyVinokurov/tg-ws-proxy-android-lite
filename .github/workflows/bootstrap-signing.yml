@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: pixel-eco-bootstrap
@@ -22,6 +23,7 @@ jobs:
       - name: Generate permanent key, encrypted at rest in the repository
         env:
           PASSPHRASE: ${{ secrets.PIXEL_ECO_RELEASE_KEY_PASSPHRASE }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -52,4 +54,6 @@ jobs:
           git commit -m "release: bootstrap permanent Pixel Eco signing identity"
           git push origin HEAD:main
           echo "Encrypted keystore and public signing certificate pin committed."
+          echo "Starting the signed release workflow using the freshly persisted identity."
+          gh workflow run release-pixel-eco.yml --repo "$GITHUB_REPOSITORY" --ref main
           echo "Keep the environment passphrase backed up privately; NEVER rotate this identity."
