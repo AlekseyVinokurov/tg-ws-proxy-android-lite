@@ -55,7 +55,7 @@ The in-app updater accepts only stable GitHub Releases and checks the asset SHA-
 
 ## Experimental transport controls and TXT diagnostics
 
-Independent settings allow testing **WS/80 opt-in**, a certificate-verified **kwsN TLS SNI** instead of the base-domain SNI, and **DoH-first** routing. They may degrade connectivity and do not guarantee DPI evasion.
+Independent settings allow testing **WS/80 opt-in**, a certificate-verified **kwsN TLS SNI** instead of the base-domain SNI, and **DoH-first** routing, and a **WS/80 HTTP-header fingerprint experiment** that changes the header order and User-Agent when WS/80 is enabled. They may degrade connectivity and do not guarantee DPI evasion.
 
 Enable **Record diagnostic log** before starting the proxy. An app-private, size-limited background capture records network events, endpoints, transport failures, current network type and WSS/WS80 counters. In **Logs**, tap **Save diagnostic TXT** to export using Android's file picker. The report can expose network IP/host metadata; review it before sharing. Secrets and long hex tokens are redacted on a best-effort basis.
 
