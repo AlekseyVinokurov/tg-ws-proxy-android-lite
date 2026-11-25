@@ -68,33 +68,7 @@ jobs:
           so="target/aarch64-linux-android/release/libtgwsproxy.so"
           test -s "$so"
           symbols="$("$NDK/bin/llvm-nm" -D "$so")"
-          grep -qE ' [TW] SetCfWs80Fallback
-          cp "$so" app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
-
-      - name: Setup Gradle 9.6
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "9.6.0"
-
-      - name: Build arm64 debug APK with newly compiled native library
-        run: gradle :app:assembleArm64Debug --no-daemon
-
-      - name: Verify APK exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="app/build/outputs/apk/arm64/debug/app-arm64-debug.apk"
-          test -s "$APK"
-          cp "$APK" "tg-ws-proxy-pixel8-eco.apk"
-
-      - name: Upload test APK (not a release)
-        uses: actions/upload-artifact@v4
-        with:
-          name: tg-ws-proxy-pixel8-eco-${{ github.run_id }}
-          path: tg-ws-proxy-pixel8-eco.apk
-          if-no-files-found: error
-          retention-days: 7
- <<< "$symbols"
+          grep -qE ' [TW] SetCfWs80Fallback$' <<< "$symbols"
           for name in StartProxy StopProxy SetCfProxyConfig GetStats FreeString; do
             grep -qE " [TW] ${name}$" <<< "$symbols"
           done
