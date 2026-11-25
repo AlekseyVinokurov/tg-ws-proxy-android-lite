@@ -40,6 +40,7 @@ class ProxyService : Service() {
     private var lastCfWs80Fallback: Boolean = false
     private var lastSniExperiment: Boolean = false
     private var lastDohExperiment: Boolean = false
+    private var lastWs80HeaderExperiment: Boolean = false
     private var lastDiagnostics: Boolean = false
     private var lastCfPriority: Boolean = true
     private var lastCfDomain: String = ""
@@ -57,6 +58,7 @@ class ProxyService : Service() {
         const val EXTRA_CF_WS80_FALLBACK = "EXTRA_CF_WS80_FALLBACK"
         const val EXTRA_EXP_SNI_SUBDOMAIN = "EXTRA_EXP_SNI_SUBDOMAIN"
         const val EXTRA_EXP_DOH_FIRST = "EXTRA_EXP_DOH_FIRST"
+        const val EXTRA_EXP_WS80_HEADERS = "EXTRA_EXP_WS80_HEADERS"
         const val EXTRA_DIAG_RECORDING = "EXTRA_DIAG_RECORDING"
         const val EXTRA_CFPROXY_PRIORITY = "EXTRA_CFPROXY_PRIORITY"
         const val EXTRA_CFPROXY_DOMAIN = "EXTRA_CFPROXY_DOMAIN"
@@ -96,11 +98,12 @@ class ProxyService : Service() {
                 val cfWs80Fallback = intent.getBooleanExtra(EXTRA_CF_WS80_FALLBACK, false)
                 val experimentSni = intent.getBooleanExtra(EXTRA_EXP_SNI_SUBDOMAIN, false)
                 val experimentDoh = intent.getBooleanExtra(EXTRA_EXP_DOH_FIRST, false)
+                val experimentWs80Headers = intent.getBooleanExtra(EXTRA_EXP_WS80_HEADERS, false)
                 val diagnostics = intent.getBooleanExtra(EXTRA_DIAG_RECORDING, false)
                 val cfPriority = intent.getBooleanExtra(EXTRA_CFPROXY_PRIORITY, true)
                 val cfDomain = intent.getStringExtra(EXTRA_CFPROXY_DOMAIN) ?: ""
                 val secretKey = intent.getStringExtra(EXTRA_SECRET_KEY) ?: ""
-                startProxy(bindIp, port, ips, poolSize, cfEnabled, cfWs80Fallback, experimentSni, experimentDoh, diagnostics, cfPriority, cfDomain, secretKey)
+                startProxy(bindIp, port, ips, poolSize, cfEnabled, cfWs80Fallback, experimentSni, experimentDoh, experimentWs80Headers, diagnostics, cfPriority, cfDomain, secretKey)
             }
             ACTION_STOP -> {
                 stopProxy()
@@ -113,7 +116,7 @@ class ProxyService : Service() {
                 // If we had saved params, try to restart
                 if (lastPort > 0 && lastSecretKey.isNotEmpty()) {
                     Log.w(TAG, "Service restarted by system, re-starting proxy")
-                    startProxy(lastBindIp, lastPort, lastIps, lastPoolSize, lastCfEnabled, lastCfWs80Fallback, lastSniExperiment, lastDohExperiment, lastDiagnostics, lastCfPriority, lastCfDomain, lastSecretKey)
+                    startProxy(lastBindIp, lastPort, lastIps, lastPoolSize, lastCfEnabled, lastCfWs80Fallback, lastSniExperiment, lastDohExperiment, lastWs80HeaderExperiment, lastDiagnostics, lastCfPriority, lastCfDomain, lastSecretKey)
                 } else {
                     stopSelf()
                 }
@@ -141,6 +144,7 @@ class ProxyService : Service() {
     private fun startProxy(bindIp: String, port: Int, ips: String, poolSize: Int = 4,
                            cfEnabled: Boolean = true, cfWs80Fallback: Boolean = false,
                            experimentSni: Boolean = false, experimentDoh: Boolean = false,
+                           experimentWs80Headers: Boolean = false,
                            diagnostics: Boolean = false, cfPriority: Boolean = true,
                            cfDomain: String = "", secretKey: String = "") {
         if (_isRunning.value || stopInProgress) return
@@ -155,9 +159,10 @@ class ProxyService : Service() {
         lastCfWs80Fallback = cfEnabled && cfWs80Fallback
         lastSniExperiment = cfEnabled && experimentSni
         lastDohExperiment = cfEnabled && experimentDoh
+        lastWs80HeaderExperiment = cfEnabled && cfWs80Fallback && experimentWs80Headers
         lastDiagnostics = diagnostics
         if (diagnostics) DiagnosticRecorder.start(this)
-        DiagnosticRecorder.event(this, "start: cf=$cfEnabled ws80=$cfWs80Fallback sni_subdomain=$experimentSni doh_first=$experimentDoh log=$diagnostics local_port=$port")
+        DiagnosticRecorder.event(this, "start: cf=$cfEnabled ws80=$cfWs80Fallback sni_subdomain=$experimentSni doh_first=$experimentDoh ws80_headers=$experimentWs80Headers log=$diagnostics local_port=$port")
         lastCfPriority = cfPriority
         lastCfDomain = cfDomain
         lastSecretKey = secretKey
@@ -198,6 +203,7 @@ class ProxyService : Service() {
                 NativeProxy.setCfWs80Fallback(cfEnabled && cfWs80Fallback)
                 NativeProxy.setExperimentalTlsSubdomainSni(cfEnabled && experimentSni)
                 NativeProxy.setExperimentalDohFirst(cfEnabled && experimentDoh)
+                NativeProxy.setExperimentalWs80Headers(cfEnabled && cfWs80Fallback && experimentWs80Headers)
                 val result = NativeProxy.startProxy(bindIp, port, ips, secretKey, if (diagnostics) 1 else 0)
                 if (result == 0) {
                     serviceScope.launch {
@@ -299,6 +305,7 @@ class ProxyService : Service() {
                 cfWs80Fallback = lastCfWs80Fallback,
                 experimentSni = lastSniExperiment,
                 experimentDoh = lastDohExperiment,
+                experimentWs80Headers = lastWs80HeaderExperiment,
                 diagnostics = lastDiagnostics,
                 cfPriority = lastCfPriority,
                 cfDomain = lastCfDomain,
