@@ -100,6 +100,8 @@ impl Default for Cfproxy429State {
 
 // Cloudflare proxy config
 pub static CFPROXY_ENABLED: AtomicBool = AtomicBool::new(true);
+// Never silently downgrade CF traffic to plaintext WebSocket (port 80).
+pub static CF_WS80_FALLBACK: AtomicBool = AtomicBool::new(false);
 
 pub struct CfproxyConfig {
     pub user_domain: String,
