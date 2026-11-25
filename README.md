@@ -45,7 +45,7 @@ This new logic has not yet been verified in a standalone Pixel Eco APK. A simila
 
 ## Release signing and updates
 
-Starting with the **1.2.4** candidate, official builds use a **permanent signing identity** encrypted in the repository. The passphrase is stored only in a protected GitHub Actions environment named `pixel-eco-release`. The [Bootstrap signing](.github/workflows/bootstrap-signing.yml) workflow creates the key **once** and refuses rotation. The owner stores a private copy of the passphrase (at least 32 characters) in a password manager and in GitHub Secret `PIXEL_ECO_RELEASE_KEY_PASSPHRASE`.
+Starting with the **1.2.4** candidate, official builds use a **permanent signing identity** encrypted in the repository. The passphrase is stored in the repository's GitHub Actions Secrets. The [Bootstrap signing](.github/workflows/bootstrap-signing.yml) workflow creates the key **once** and refuses rotation. One command generates a random 32-byte passphrase and pipes it directly to repository GitHub Secret `PIXEL_ECO_RELEASE_KEY_PASSPHRASE`. If the GitHub secret is ever lost, the encrypted key cannot be recovered without a backup of that passphrase.
 
 The [Publish signed Pixel Eco APK](.github/workflows/release-pixel-eco.yml) workflow rebuilds Rust and Android on a **GitHub-hosted runner**, signs with that identity, verifies the pinned certificate SHA-256, and publishes an official GitHub Release. No local Android compilation or signing.
 
