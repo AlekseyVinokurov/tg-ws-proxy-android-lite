@@ -16,6 +16,8 @@ interface ProxyLibrary : Library {
     fun SetCfProxyCacheDir(cacheDir: String)
     fun SetCfProxyConfig(enabled: Int, priority: Int, userDomain: String)
     fun SetCfWs80Fallback(enabled: Int)
+    fun SetExperimentalTlsSubdomainSni(enabled: Int)
+    fun SetExperimentalDohFirst(enabled: Int)
     fun SetCfWorkerDomains(domains: String)
     fun SetFakeTlsDomain(domain: String)
     fun SetDisableSecure(v: Int)
@@ -56,6 +58,14 @@ object NativeProxy {
     }
 
     /** Feature is only present in freshly source-built native binaries. */
+    fun setExperimentalTlsSubdomainSni(enabled: Boolean) {
+        ProxyLibrary.INSTANCE.SetExperimentalTlsSubdomainSni(if (enabled) 1 else 0)
+    }
+
+    fun setExperimentalDohFirst(enabled: Boolean) {
+        ProxyLibrary.INSTANCE.SetExperimentalDohFirst(if (enabled) 1 else 0)
+    }
+
     fun setCfWs80Fallback(enabled: Boolean) {
         try {
             ProxyLibrary.INSTANCE.SetCfWs80Fallback(if (enabled) 1 else 0)
