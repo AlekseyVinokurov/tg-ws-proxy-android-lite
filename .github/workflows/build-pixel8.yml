@@ -44,14 +44,20 @@ jobs:
         run: |
           cargo test --locked --lib
 
-      - name: Android SDK and pinned NDK
-        uses: android-actions/setup-android@v3
+      - name: Verify hosted Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "${ANDROID_HOME}/cmdline-tools"
+          echo "Using preinstalled GitHub-hosted Android SDK"
 
       - name: Compile the Android arm64 Rust core (never use stale bundled .so)
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install 'ndk;26.3.11579264'
+          SDKMANAGER="$(command -v sdkmanager || find "${ANDROID_HOME}/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER"
+          "$SDKMANAGER" --install 'ndk;26.3.11579264'
           rustup target add aarch64-linux-android
           NDK="${ANDROID_HOME}/ndk/26.3.11579264/toolchains/llvm/prebuilt/linux-x86_64"
           test -x "$NDK/bin/aarch64-linux-android24-clang"
@@ -61,9 +67,36 @@ jobs:
           cargo build --locked --release --target aarch64-linux-android
           so="target/aarch64-linux-android/release/libtgwsproxy.so"
           test -s "$so"
-          "$NDK/bin/llvm-nm" -D "$so" | grep -E ' [TW] SetCfWs80Fallback$'
+          symbols="$("$NDK/bin/llvm-nm" -D "$so")"
+          grep -qE ' [TW] SetCfWs80Fallback
+          cp "$so" app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
+
+      - name: Setup Gradle 9.6
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Build arm64 debug APK with newly compiled native library
+        run: gradle :app:assembleArm64Debug --no-daemon
+
+      - name: Verify APK exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/arm64/debug/app-arm64-debug.apk"
+          test -s "$APK"
+          cp "$APK" "tg-ws-proxy-pixel8-eco.apk"
+
+      - name: Upload test APK (not a release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tg-ws-proxy-pixel8-eco-${{ github.run_id }}
+          path: tg-ws-proxy-pixel8-eco.apk
+          if-no-files-found: error
+          retention-days: 7
+ <<< "$symbols"
           for name in StartProxy StopProxy SetCfProxyConfig GetStats FreeString; do
-            "$NDK/bin/llvm-nm" -D "$so" | grep -qE " [TW] ${name}$"
+            grep -qE " [TW] ${name}$" <<< "$symbols"
           done
           cp "$so" app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
 
