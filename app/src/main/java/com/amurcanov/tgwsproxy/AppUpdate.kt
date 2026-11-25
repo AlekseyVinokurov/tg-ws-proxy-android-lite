@@ -58,17 +58,14 @@ enum class RemoteVersionSource {
 const val UPDATE_DIALOG_ACTION_POSTPONED = "postponed"
 const val UPDATE_DIALOG_ACTION_UPDATE = "update"
 
-suspend fun fetchLatestReleaseInfo(localVersion: String? = null): AppReleaseInfo? = withContext(Dispatchers.IO) {
-    val latestRelease = fetchReleaseFromLatestWebRedirect()
-        ?: fetchReleaseFromLatestEndpoint()
-        ?: fetchLatestStableReleaseFromList()
-    val latestTag = fetchLatestTagFromList()
+private val STABLE_VERSION_TAG = Regex("^v?[0-9]+\\.[0-9]+\\.[0-9]+[a-zA-Z0-9._-]*$")
 
-    when {
-        latestRelease == null -> latestTag
-        latestTag == null -> latestRelease
-        isNewerVersion(latestRelease.versionTag, latestTag.versionTag) -> latestTag
-        else -> latestRelease
+suspend fun fetchLatestReleaseInfo(localVersion: String? = null): AppReleaseInfo? = withContext(Dispatchers.IO) {
+    val latest = fetchReleaseFromLatestEndpoint()
+    if (latest != null && STABLE_VERSION_TAG.matches(latest.versionTag)) {
+        latest
+    } else {
+        fetchLatestStableReleaseFromList()
     }
 }
 
@@ -104,6 +101,7 @@ private fun fetchLatestStableReleaseFromList(): AppReleaseInfo? {
         if (json.optBoolean("draft") || json.optBoolean("prerelease")) continue
 
         val release = json.toAppReleaseInfo() ?: continue
+        if (!STABLE_VERSION_TAG.matches(release.versionTag)) continue
         if (bestRelease == null || isNewerVersion(bestRelease.versionTag, release.versionTag)) {
             bestRelease = release
         }
