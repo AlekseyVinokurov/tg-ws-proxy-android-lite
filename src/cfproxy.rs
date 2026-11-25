@@ -604,58 +604,81 @@ pub async fn cf_connect_domain(
 ) -> (Option<RawWebSocket>, String, Option<WsError>) {
     let path = if path.is_empty() { "/apiws" } else { path };
     let allow_ws80 = CF_WS80_FALLBACK.load(std::sync::atomic::Ordering::Relaxed);
+    let experimental_sni = EXP_TLS_SUBDOMAIN_SNI.load(std::sync::atomic::Ordering::Relaxed);
+    let doh_first = EXP_DOH_FIRST.load(std::sync::atomic::Ordering::Relaxed);
+    let sni_name = if experimental_sni { domain } else { base_domain };
     let phase_timeout = crate::ws::ws_connect_timeout(timeout).min(CFPROXY_DIAL_PHASE_TIMEOUT);
     let secure_timeout = if allow_ws80 {
         phase_timeout.min(Duration::from_millis(1500))
     } else {
         phase_timeout
     };
+    let doh_ip = if doh_first { resolve_doh(domain).await } else { None };
+    let first_addr = doh_ip.as_deref().unwrap_or(domain);
+    let mut resolved_ip = doh_ip.unwrap_or_default();
+    let mut can_retry_plain: bool;
+    let mut last_error: WsError;
 
-    let mut resolved_ip = String::new();
-    let mut retry_permitted: bool;
-    let mut last_err: WsError;
-
-    match ws_connect_once_full(domain, domain, path, secure_timeout, Some(base_domain), true).await {
-        Ok(ws) => return (Some(ws), String::new(), None),
+    ldebug!(" CF WSS attempt host={} dial={} sni={} mode={}",
+        domain, first_addr, sni_name, if doh_first { "doh-first" } else { "dns-first" });
+    STATS.cf_wss_try.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    match ws_connect_once_full(first_addr, domain, path, secure_timeout, Some(sni_name), true).await {
+        Ok(ws) => {
+            STATS.cf_wss_ok.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            linfo!(" CF WSS connected host={} via={}", domain, first_addr);
+            return (Some(ws), resolved_ip, None);
+        },
         Err(e) => {
-            if is_http_status_error(&e, 429) {
-                return (None, String::new(), Some(e));
-            }
-            retry_permitted = retry_over_plain_ws(&e);
-            last_err = e;
+            STATS.cf_wss_fail.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            ldebug!(" CF WSS failed host={} dial={} err={}", domain, first_addr, e.compact());
+            if is_http_status_error(&e, 429) { return (None, resolved_ip, Some(e)); }
+            can_retry_plain = retry_over_plain_ws(&e);
+            last_error = e;
         }
     }
 
-    if let Some(ip) = resolve_doh(domain).await.filter(|ip| !ip.is_empty()) {
-        resolved_ip = ip;
-        match ws_connect_once_full(
-            &resolved_ip, domain, path, secure_timeout, Some(base_domain), true,
-        ).await {
-            Ok(ws) => return (Some(ws), resolved_ip, None),
-            Err(e) => {
-                retry_permitted &= retry_over_plain_ws(&e);
-                last_err = e;
-            }
-        }
-    }
-
-    if allow_ws80 && retry_permitted {
-        // Only the Cloudflare route is downgraded. Direct Telegram/worker WS
-        // and the existing raw TCP fallback keep their independent policies.
-        let dial_addr = if resolved_ip.is_empty() { domain } else { &resolved_ip };
-        linfo!(" CF WS/80 opt-in retry");
-        match ws_connect_once_full(
-            dial_addr, domain, path, Duration::from_millis(1500), None, false,
-        ).await {
+    let second_addr = if first_addr == domain {
+        resolve_doh(domain).await.filter(|ip| !ip.is_empty())
+    } else {
+        Some(domain.to_string())
+    };
+    if let Some(second) = second_addr {
+        if second != domain { resolved_ip = second.clone(); }
+        ldebug!(" CF WSS retry host={} dial={} sni={}", domain, second, sni_name);
+        STATS.cf_wss_try.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        match ws_connect_once_full(&second, domain, path, secure_timeout, Some(sni_name), true).await {
             Ok(ws) => {
-                linfo!(" CF WS/80 connected");
+                STATS.cf_wss_ok.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                linfo!(" CF WSS connected host={} via={}", domain, second);
                 return (Some(ws), resolved_ip, None);
+            },
+            Err(e) => {
+                STATS.cf_wss_fail.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                ldebug!(" CF WSS retry failed host={} dial={} err={}", domain, second, e.compact());
+                can_retry_plain &= retry_over_plain_ws(&e);
+                last_error = e;
             }
-            Err(e) => return (None, resolved_ip, Some(e)),
         }
     }
 
-    (None, resolved_ip, Some(last_err))
+    if allow_ws80 && can_retry_plain {
+        let dial_addr = if resolved_ip.is_empty() { domain } else { &resolved_ip };
+        STATS.cf_ws80_try.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        linfo!(" CF WS80 opt-in attempt host={} dial={}", domain, dial_addr);
+        match ws_connect_once_full(dial_addr, domain, path, Duration::from_millis(1500), None, false).await {
+            Ok(ws) => {
+                STATS.cf_ws80_ok.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                linfo!(" CF WS80 connected host={} via={}", domain, dial_addr);
+                return (Some(ws), resolved_ip, None);
+            },
+            Err(e) => {
+                STATS.cf_ws80_fail.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                ldebug!(" CF WS80 failed host={} dial={} err={}", domain, dial_addr, e.compact());
+                return (None, resolved_ip, Some(e));
+            }
+        }
+    }
+    (None, resolved_ip, Some(last_error))
 }
 
 #[cfg(test)]
