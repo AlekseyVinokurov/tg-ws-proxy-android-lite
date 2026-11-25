@@ -583,6 +583,7 @@ fn retry_over_plain_ws(error: &WsError) -> bool {
         WsError::Io(e) => matches!(
             e.kind(),
             std::io::ErrorKind::TimedOut
+                | std::io::ErrorKind::ConnectionRefused
                 | std::io::ErrorKind::ConnectionReset
                 | std::io::ErrorKind::ConnectionAborted
                 | std::io::ErrorKind::UnexpectedEof
