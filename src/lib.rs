@@ -272,6 +272,11 @@ pub extern "C" fn SetExperimentalDohFirst(enabled: c_int) {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn SetExperimentalWs80Headers(enabled: c_int) {
+    EXP_WS80_HEADERS.store(enabled != 0, Ordering::Relaxed);
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn SetDisableSecure(v: c_int) {
     // --no-secure: порт 80 для CF proxy/worker.
     DISABLE_SECURE.store(v != 0, Ordering::Relaxed);
