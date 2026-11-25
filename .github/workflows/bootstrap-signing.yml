@@ -42,7 +42,7 @@ jobs:
             -storepass "$PASSPHRASE" -alias pixel-eco-release -rfc \
             | openssl x509 -outform DER | sha256sum | awk '{print $1}' \
             > release/certificate.sha256
-          printf '%s\\n' "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+          printf '%s\n' "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
             --passphrase-fd 0 --symmetric --cipher-algo AES256 --s2k-mode 3 \
             --s2k-digest-algo SHA512 --output release/pixel-eco-release.p12.gpg "$KEY"
           test -s release/pixel-eco-release.p12.gpg
