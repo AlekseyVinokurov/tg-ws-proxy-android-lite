@@ -4,9 +4,8 @@ use crate::{ldebug};
 use base64::Engine;
 use byteorder::{BigEndian, ByteOrder};
 use rand::RngCore;
-use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::{ClientConfig, DigitallySignedStruct, SignatureScheme};
-use rustls_pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::ClientConfig;
+use rustls_pki_types::ServerName;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -32,72 +31,23 @@ pub const MAX_MESSAGE_LEN: u64 = 16 * 1024 * 1024;
 const MAX_FRAME_PAYLOAD: u64 = 16 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
-// TLS config: InsecureSkipVerify + session cache (как в Go)
+// Verified TLS: Mozilla trust anchors; reject untrusted/wrong-host certificates.
+// Cloudflare SNI may differ from the HTTP Host, but the TLS server name is
+// always verified against a trusted public CA.
 // ---------------------------------------------------------------------------
-
-#[derive(Debug)]
-struct NoVerify;
-
-impl ServerCertVerifier for NoVerify {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &CertificateDer<'_>,
-        _intermediates: &[CertificateDer<'_>],
-        _server_name: &ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: UnixTime,
-    ) -> Result<ServerCertVerified, rustls::Error> {
-        Ok(ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &CertificateDer<'_>,
-        _dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        Ok(HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        vec![
-            SignatureScheme::RSA_PKCS1_SHA256,
-            SignatureScheme::RSA_PKCS1_SHA384,
-            SignatureScheme::RSA_PKCS1_SHA512,
-            SignatureScheme::ECDSA_NISTP256_SHA256,
-            SignatureScheme::ECDSA_NISTP384_SHA384,
-            SignatureScheme::ECDSA_NISTP521_SHA512,
-            SignatureScheme::RSA_PSS_SHA256,
-            SignatureScheme::RSA_PSS_SHA384,
-            SignatureScheme::RSA_PSS_SHA512,
-            SignatureScheme::ED25519,
-        ]
-    }
-}
-
 use once_cell::sync::Lazy;
 
-// Глобальный TLS-конфиг с session resumption cache (аналог tls.NewLRUClientSessionCache(100))
 static TLS_CONFIG: Lazy<Arc<ClientConfig>> = Lazy::new(|| {
+    let roots = rustls::RootCertStore {
+        roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+    };
     let mut cfg = ClientConfig::builder()
-        .dangerous()
-        .with_custom_certificate_verifier(Arc::new(NoVerify))
+        .with_root_certificates(roots)
         .with_no_client_auth();
     cfg.resumption = rustls::client::Resumption::in_memory_sessions(100);
     Arc::new(cfg)
 });
 
-// Отдельный контекст для fronting (check_hostname=False в оригинале).
-// На практике оба контекста NoVerify; разделение сохранено для паритета.
 static TLS_CONFIG_FRONTING: Lazy<Arc<ClientConfig>> = Lazy::new(|| TLS_CONFIG.clone());
 
 // ---------------------------------------------------------------------------
