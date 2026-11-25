@@ -430,7 +430,16 @@ fun InfoTab(settingsStore: SettingsStore) {
                         action = UPDATE_DIALOG_ACTION_UPDATE,
                         actedAt = System.currentTimeMillis()
                     )
-                    openUrlInBrowser(context, release.releaseUrl)
+                    try {
+                        Toast.makeText(context, context.getString(com.amurcanov.tgwsproxy.R.string.update_download_started), Toast.LENGTH_SHORT).show()
+                        com.amurcanov.tgwsproxy.AppUpdateInstaller.install(context, release)
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            context,
+                            context.getString(com.amurcanov.tgwsproxy.R.string.update_download_failed, e.message ?: "Unknown error"),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
                 }
             }
         )
