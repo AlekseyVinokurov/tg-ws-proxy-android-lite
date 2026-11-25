@@ -612,10 +612,19 @@ async fn handshake_plain(
     let mut ws_key_bytes = [0u8; 16];
     rand::thread_rng().fill_bytes(&mut ws_key_bytes);
     let ws_key = base64::engine::general_purpose::STANDARD.encode(ws_key_bytes);
-    let req = format!(
-        "GET {} HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {}\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: binary\r\n\r\n",
-        path, domain, ws_key
-    );
+    let req = if EXP_WS80_HEADERS.load(Ordering::Relaxed) {
+        // Experimental HTTP header order for DPI A/B; protocol content is
+        // unchanged and the option is never used inside TLS handshakes.
+        format!(
+            "GET {} HTTP/1.1\r\nConnection: Upgrade\r\nHost: {}\r\nSec-WebSocket-Version: 13\r\nUpgrade: websocket\r\nUser-Agent: Mozilla/5.0\r\nSec-WebSocket-Protocol: binary\r\nSec-WebSocket-Key: {}\r\n\r\n",
+            path, domain, ws_key
+        )
+    } else {
+        format!(
+            "GET {} HTTP/1.1\r\nHost: {}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {}\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Protocol: binary\r\n\r\n",
+            path, domain, ws_key
+        )
+    };
     match tokio::time::timeout(timeout, write_half.write_all(req.as_bytes())).await {
         Ok(Ok(())) => {}
         Ok(Err(e)) => return Err(WsError::Io(e)),
