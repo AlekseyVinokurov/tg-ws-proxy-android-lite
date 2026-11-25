@@ -614,7 +614,7 @@ pub async fn cf_connect_domain(
         phase_timeout
     };
     let doh_ip = if doh_first { resolve_doh(domain).await } else { None };
-    let first_addr = doh_ip.as_deref().unwrap_or(domain);
+    let first_addr = doh_ip.as_deref().unwrap_or(domain).to_owned();
     let mut resolved_ip = doh_ip.unwrap_or_default();
     let mut can_retry_plain: bool;
     let mut last_error: WsError;
@@ -622,7 +622,7 @@ pub async fn cf_connect_domain(
     ldebug!(" CF WSS attempt host={} dial={} sni={} mode={}",
         domain, first_addr, sni_name, if doh_first { "doh-first" } else { "dns-first" });
     STATS.cf_wss_try.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    match ws_connect_once_full(first_addr, domain, path, secure_timeout, Some(sni_name), true).await {
+    match ws_connect_once_full(&first_addr, domain, path, secure_timeout, Some(sni_name), true).await {
         Ok(ws) => {
             STATS.cf_wss_ok.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             linfo!(" CF WSS connected host={} via={}", domain, first_addr);
