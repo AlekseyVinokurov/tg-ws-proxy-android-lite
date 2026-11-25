@@ -14,7 +14,6 @@ jobs:
   bootstrap:
     if: github.repository == 'AlekseyVinokurov/tg-ws-proxy-android-lite' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    environment: pixel-eco-release
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
