@@ -146,4 +146,7 @@
     <string name="diagnostic_export_error">Не удалось сохранить TXT-отчёт</string>
     <string name="update_download_failed">Ошибка обновления: %1$s</string>
     <string name="update_download_started">Загрузка и проверка обновления…</string>
+
+    <string name="experiment_http_title">DPI-эксперимент: заголовки WS/80</string>
+    <string name="experiment_http_desc">Менять порядок HTTP-заголовков WebSocket и User-Agent. Влияет только на включённый WS/80, не гарантирует обход DPI.</string>
 </resources>
