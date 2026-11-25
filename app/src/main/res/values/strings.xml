@@ -133,4 +133,17 @@
     <string name="cf_ws80_confirm">Allow less-protected fallback?</string>
     <string name="cf_ws80_enable">Enable fallback</string>
     <string name="cf_ws80_cancel">Cancel</string>
+
+    <string name="experiment_section">Network experiments</string>
+    <string name="experiment_sni_title">TLS SNI A/B: use kwsN host</string>
+    <string name="experiment_sni_desc">Changes the verified TLS name from the Cloudflare base domain to the kwsN subdomain. May cause certificate errors; never disables certificate checks.</string>
+    <string name="experiment_doh_title">DNS experiment: DoH first</string>
+    <string name="experiment_doh_desc">Try the DoH-resolved IP before the normal hostname. Does not encrypt the MTProto transport by itself.</string>
+    <string name="diagnostic_title">Record diagnostic log</string>
+    <string name="diagnostic_desc">Store a bounded local log while the proxy runs. The TXT file can include server addresses, network errors and counters, but no Telegram message content.</string>
+    <string name="diagnostic_export">Save diagnostic TXT</string>
+    <string name="diagnostic_exported">Diagnostic TXT saved</string>
+    <string name="diagnostic_export_error">Cannot save diagnostic TXT</string>
+    <string name="update_download_failed">Update failed: %1$s</string>
+    <string name="update_download_started">Downloading and checking update…</string>
 </resources>
