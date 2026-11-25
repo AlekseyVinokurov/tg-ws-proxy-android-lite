@@ -146,4 +146,7 @@
     <string name="diagnostic_export_error">Cannot save diagnostic TXT</string>
     <string name="update_download_failed">Update failed: %1$s</string>
     <string name="update_download_started">Downloading and checking update…</string>
+
+    <string name="experiment_http_title">DPI experiment: WS/80 HTTP headers</string>
+    <string name="experiment_http_desc">Change the order of plaintext WebSocket Upgrade headers and browser User-Agent. Only applies with WS/80 enabled; not a guaranteed DPI bypass.</string>
 </resources>
