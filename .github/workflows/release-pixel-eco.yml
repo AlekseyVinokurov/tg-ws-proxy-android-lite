@@ -72,7 +72,7 @@ jobs:
           lib="target/aarch64-linux-android/release/libtgwsproxy.so"
           test -s "$lib"
           symbols="$("$NDK/bin/llvm-nm" -D "$lib")"
-          for name in StartProxy StopProxy SetCfWs80Fallback SetExperimentalTlsSubdomainSni SetExperimentalDohFirst; do
+          for name in StartProxy StopProxy SetCfWs80Fallback SetExperimentalTlsSubdomainSni SetExperimentalDohFirst SetExperimentalWs80Headers; do
             grep -qE " [TW] ${name}$" <<< "$symbols"
           done
           cp "$lib" app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
