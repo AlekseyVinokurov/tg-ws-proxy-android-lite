@@ -1,5 +1,5 @@
 use crate::config::*;
-use crate::ws::{is_http_status_error, ws_connect_once, RawWebSocket, WsError};
+use crate::ws::{is_http_status_error, ws_connect_once_full, RawWebSocket, WsError};
 use crate::{ldebug, lerror, linfo, lwarn};
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -575,38 +575,111 @@ fn new_timed_attempt_timeout(base: Duration, phase: Duration) -> Duration {
     eff
 }
 
+/// Only transport failures are eligible for the optional WS/80 fallback.
+/// Certificate/hostname errors and HTTP errors must never downgrade.
+fn retry_over_plain_ws(error: &WsError) -> bool {
+    match error {
+        WsError::Timeout => true,
+        WsError::Io(e) => matches!(
+            e.kind(),
+            std::io::ErrorKind::TimedOut
+                | std::io::ErrorKind::ConnectionReset
+                | std::io::ErrorKind::ConnectionAborted
+                | std::io::ErrorKind::UnexpectedEof
+                | std::io::ErrorKind::BrokenPipe
+        ),
+        _ => false,
+    }
+}
+
+/// TLS SNI is the base domain (certificate verified), while HTTP Host
+/// remains kwsN.<base-domain>. For restricted mobile networks users can
+/// *explicitly* allow a bounded plain WS/80 retry after network/TLS timeouts.
 pub async fn cf_connect_domain(
     domain: &str,
+    base_domain: &str,
     path: &str,
     timeout: f64,
 ) -> (Option<RawWebSocket>, String, Option<WsError>) {
     let path = if path.is_empty() { "/apiws" } else { path };
+    let allow_ws80 = CF_WS80_FALLBACK.load(std::sync::atomic::Ordering::Relaxed);
+    let phase_timeout = crate::ws::ws_connect_timeout(timeout).min(CFPROXY_DIAL_PHASE_TIMEOUT);
+    let secure_timeout = if allow_ws80 {
+        phase_timeout.min(Duration::from_millis(1500))
+    } else {
+        phase_timeout
+    };
 
-    let attempt_timeout = crate::ws::ws_connect_timeout(timeout);
-    let mut phase_timeout = attempt_timeout;
-    if phase_timeout > CFPROXY_DIAL_PHASE_TIMEOUT {
-        phase_timeout = CFPROXY_DIAL_PHASE_TIMEOUT;
+    let mut resolved_ip = String::new();
+    let mut retry_permitted: bool;
+    let mut last_err: WsError;
+
+    match ws_connect_once_full(domain, domain, path, secure_timeout, Some(base_domain), true).await {
+        Ok(ws) => return (Some(ws), String::new(), None),
+        Err(e) => {
+            if is_http_status_error(&e, 429) {
+                return (None, String::new(), Some(e));
+            }
+            retry_permitted = retry_over_plain_ws(&e);
+            last_err = e;
+        }
     }
 
-    let host_timeout = new_timed_attempt_timeout(phase_timeout, phase_timeout);
-    match ws_connect_once(domain, domain, path, host_timeout).await {
-        Ok(ws) => return (Some(ws), String::new(), None),
-        Err(host_err) => {
-            if is_http_status_error(&host_err, 429) {
-                return (None, String::new(), Some(host_err));
-            }
-            let resolved_ip = resolve_doh(domain).await.unwrap_or_default();
-            if resolved_ip.is_empty() {
-                ldebug!(" CF DNS {} -> no result", domain);
-                return (None, String::new(), Some(host_err));
-            }
-            ldebug!(" CF DNS {} -> {}", domain, resolved_ip);
-            let ip_timeout = new_timed_attempt_timeout(phase_timeout, phase_timeout);
-            match ws_connect_once(&resolved_ip, domain, path, ip_timeout).await {
-                Ok(ws) => (Some(ws), resolved_ip, None),
-                Err(e) => (None, resolved_ip, Some(e)),
+    if let Some(ip) = resolve_doh(domain).await.filter(|ip| !ip.is_empty()) {
+        resolved_ip = ip;
+        match ws_connect_once_full(
+            &resolved_ip, domain, path, secure_timeout, Some(base_domain), true,
+        ).await {
+            Ok(ws) => return (Some(ws), resolved_ip, None),
+            Err(e) => {
+                retry_permitted &= retry_over_plain_ws(&e);
+                last_err = e;
             }
         }
+    }
+
+    if allow_ws80 && retry_permitted {
+        // Only the Cloudflare route is downgraded. Direct Telegram/worker WS
+        // and the existing raw TCP fallback keep their independent policies.
+        let dial_addr = if resolved_ip.is_empty() { domain } else { &resolved_ip };
+        linfo!(" CF WS/80 opt-in retry");
+        match ws_connect_once_full(
+            dial_addr, domain, path, Duration::from_millis(1500), None, false,
+        ).await {
+            Ok(ws) => {
+                linfo!(" CF WS/80 connected");
+                return (Some(ws), resolved_ip, None);
+            }
+            Err(e) => return (None, resolved_ip, Some(e)),
+        }
+    }
+
+    (None, resolved_ip, Some(last_err))
+}
+
+#[cfg(test)]
+mod cf_mobile_tests {
+    use super::retry_over_plain_ws;
+    use crate::ws::{WsError, WsHandshakeError};
+    use std::collections::HashMap;
+    use std::io::{Error, ErrorKind};
+
+    #[test]
+    fn ws80_is_only_a_network_failure_fallback() {
+        assert!(retry_over_plain_ws(&WsError::Timeout));
+        assert!(retry_over_plain_ws(&WsError::Io(Error::new(
+            ErrorKind::ConnectionReset, "reset"
+        ))));
+        assert!(!retry_over_plain_ws(&WsError::Io(Error::new(
+            ErrorKind::InvalidData, "invalid certificate"
+        ))));
+        assert!(!retry_over_plain_ws(&WsError::Handshake(WsHandshakeError {
+            status_code: 403,
+            status_line: "Forbidden".into(),
+            headers: HashMap::new(),
+            location: String::new(),
+        })));
+        assert!(!retry_over_plain_ws(&WsError::Other("other".into())));
     }
 }
 
