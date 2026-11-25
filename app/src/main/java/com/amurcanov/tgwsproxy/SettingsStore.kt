@@ -38,6 +38,9 @@ class SettingsStore(private val context: Context) {
         val POOL_SIZE = intPreferencesKey("pool_size")
         val CFPROXY_ENABLED = booleanPreferencesKey("cfproxy_enabled")
         val CF_WS80_FALLBACK = booleanPreferencesKey("cf_ws80_fallback")
+        val EXP_SNI_SUBDOMAIN = booleanPreferencesKey("exp_sni_subdomain")
+        val EXP_DOH_FIRST = booleanPreferencesKey("exp_doh_first")
+        val DIAG_RECORDING = booleanPreferencesKey("diag_recording")
         val CUSTOM_CF_DOMAIN_ENABLED = booleanPreferencesKey("custom_cf_domain_enabled")
         val CUSTOM_CF_DOMAIN = stringPreferencesKey("custom_cf_domain")
         val AUTO_START_ON_BOOT = booleanPreferencesKey("auto_start_on_boot")
@@ -85,6 +88,9 @@ class SettingsStore(private val context: Context) {
     val poolSize: Flow<Int> = context.dataStore.data.map { it[Keys.POOL_SIZE] ?: 1 }
     val cfproxyEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.CFPROXY_ENABLED] ?: true }
     val cfWs80Fallback: Flow<Boolean> = context.dataStore.data.map { it[Keys.CF_WS80_FALLBACK] ?: false }
+    val experimentSniSubdomain: Flow<Boolean> = context.dataStore.data.map { it[Keys.EXP_SNI_SUBDOMAIN] ?: false }
+    val experimentDohFirst: Flow<Boolean> = context.dataStore.data.map { it[Keys.EXP_DOH_FIRST] ?: false }
+    val diagnosticRecording: Flow<Boolean> = context.dataStore.data.map { it[Keys.DIAG_RECORDING] ?: false }
     val customCfDomainEnabled: Flow<Boolean> = context.dataStore.data.map { it[Keys.CUSTOM_CF_DOMAIN_ENABLED] ?: false }
     val customCfDomain: Flow<String> = context.dataStore.data.map { it[Keys.CUSTOM_CF_DOMAIN] ?: "" }
     val autoStartOnBoot: Flow<Boolean> = context.dataStore.data.map { it[Keys.AUTO_START_ON_BOOT] ?: false }
@@ -143,6 +149,18 @@ class SettingsStore(private val context: Context) {
 
     suspend fun saveUpdateCheckIntervalHours(hours: Int) {
         context.dataStore.edit { it[Keys.UPDATE_CHECK_INTERVAL_HOURS] = hours }
+    }
+
+    suspend fun saveExperimentSniSubdomain(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.EXP_SNI_SUBDOMAIN] = enabled }
+    }
+
+    suspend fun saveExperimentDohFirst(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.EXP_DOH_FIRST] = enabled }
+    }
+
+    suspend fun saveDiagnosticRecording(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.DIAG_RECORDING] = enabled }
     }
 
     suspend fun saveCfWs80Fallback(enabled: Boolean) {
