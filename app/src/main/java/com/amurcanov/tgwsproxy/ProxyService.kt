@@ -37,6 +37,7 @@ class ProxyService : Service() {
     private var lastIps: String = ""
     private var lastPoolSize: Int = 4
     private var lastCfEnabled: Boolean = true
+    private var lastCfWs80Fallback: Boolean = false
     private var lastCfPriority: Boolean = true
     private var lastCfDomain: String = ""
     private var lastSecretKey: String = ""
@@ -50,6 +51,7 @@ class ProxyService : Service() {
         const val EXTRA_IPS = "EXTRA_IPS"
         const val EXTRA_POOL_SIZE = "EXTRA_POOL_SIZE"
         const val EXTRA_CFPROXY_ENABLED = "EXTRA_CFPROXY_ENABLED"
+        const val EXTRA_CF_WS80_FALLBACK = "EXTRA_CF_WS80_FALLBACK"
         const val EXTRA_CFPROXY_PRIORITY = "EXTRA_CFPROXY_PRIORITY"
         const val EXTRA_CFPROXY_DOMAIN = "EXTRA_CFPROXY_DOMAIN"
         const val EXTRA_SECRET_KEY = "EXTRA_SECRET_KEY"
@@ -85,10 +87,11 @@ class ProxyService : Service() {
                 val ips = intent.getStringExtra(EXTRA_IPS) ?: ""
                 val poolSize = intent.getIntExtra(EXTRA_POOL_SIZE, 4)
                 val cfEnabled = intent.getBooleanExtra(EXTRA_CFPROXY_ENABLED, true)
+                val cfWs80Fallback = intent.getBooleanExtra(EXTRA_CF_WS80_FALLBACK, false)
                 val cfPriority = intent.getBooleanExtra(EXTRA_CFPROXY_PRIORITY, true)
                 val cfDomain = intent.getStringExtra(EXTRA_CFPROXY_DOMAIN) ?: ""
                 val secretKey = intent.getStringExtra(EXTRA_SECRET_KEY) ?: ""
-                startProxy(bindIp, port, ips, poolSize, cfEnabled, cfPriority, cfDomain, secretKey)
+                startProxy(bindIp, port, ips, poolSize, cfEnabled, cfWs80Fallback, cfPriority, cfDomain, secretKey)
             }
             ACTION_STOP -> {
                 stopProxy()
@@ -101,7 +104,7 @@ class ProxyService : Service() {
                 // If we had saved params, try to restart
                 if (lastPort > 0 && lastSecretKey.isNotEmpty()) {
                     Log.w(TAG, "Service restarted by system, re-starting proxy")
-                    startProxy(lastBindIp, lastPort, lastIps, lastPoolSize, lastCfEnabled, lastCfPriority, lastCfDomain, lastSecretKey)
+                    startProxy(lastBindIp, lastPort, lastIps, lastPoolSize, lastCfEnabled, lastCfWs80Fallback, lastCfPriority, lastCfDomain, lastSecretKey)
                 } else {
                     stopSelf()
                 }
@@ -127,7 +130,8 @@ class ProxyService : Service() {
 
 
     private fun startProxy(bindIp: String, port: Int, ips: String, poolSize: Int = 4,
-                           cfEnabled: Boolean = true, cfPriority: Boolean = true,
+                           cfEnabled: Boolean = true, cfWs80Fallback: Boolean = false,
+                           cfPriority: Boolean = true,
                            cfDomain: String = "", secretKey: String = "") {
         if (_isRunning.value || stopInProgress) return
         _isVerifiedRunning.value = false
@@ -138,6 +142,7 @@ class ProxyService : Service() {
         lastIps = ips
         lastPoolSize = poolSize
         lastCfEnabled = cfEnabled
+        lastCfWs80Fallback = cfEnabled && cfWs80Fallback
         lastCfPriority = cfPriority
         lastCfDomain = cfDomain
         lastSecretKey = secretKey
@@ -175,6 +180,7 @@ class ProxyService : Service() {
                 NativeProxy.setPoolSize(poolSize)
                 NativeProxy.setCfProxyCacheDir(cacheDir.absolutePath)
                 NativeProxy.setCfProxyConfig(cfEnabled, cfPriority, cfDomain)
+                NativeProxy.setCfWs80Fallback(cfEnabled && cfWs80Fallback)
                 val result = NativeProxy.startProxy(bindIp, port, ips, secretKey, 1)
                 if (result == 0) {
                     serviceScope.launch {
@@ -272,6 +278,7 @@ class ProxyService : Service() {
                 ips = lastIps,
                 poolSize = lastPoolSize,
                 cfEnabled = lastCfEnabled,
+                cfWs80Fallback = lastCfWs80Fallback,
                 cfPriority = lastCfPriority,
                 cfDomain = lastCfDomain,
                 secretKey = lastSecretKey
