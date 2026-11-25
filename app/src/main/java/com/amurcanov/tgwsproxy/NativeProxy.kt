@@ -15,6 +15,10 @@ interface ProxyLibrary : Library {
     fun SetBufferSizeKb(kb: Int)
     fun SetCfProxyCacheDir(cacheDir: String)
     fun SetCfProxyConfig(enabled: Int, priority: Int, userDomain: String)
+    fun SetCfWs80Fallback(enabled: Int)
+    fun SetExperimentalTlsSubdomainSni(enabled: Int)
+    fun SetExperimentalDohFirst(enabled: Int)
+    fun SetExperimentalWs80Headers(enabled: Int)
     fun SetCfWorkerDomains(domains: String)
     fun SetFakeTlsDomain(domain: String)
     fun SetDisableSecure(v: Int)
@@ -52,6 +56,28 @@ object NativeProxy {
             if (priority) 1 else 0,
             userDomain
         )
+    }
+
+    /** Feature is only present in freshly source-built native binaries. */
+    fun setExperimentalTlsSubdomainSni(enabled: Boolean) {
+        ProxyLibrary.INSTANCE.SetExperimentalTlsSubdomainSni(if (enabled) 1 else 0)
+    }
+
+    fun setExperimentalDohFirst(enabled: Boolean) {
+        ProxyLibrary.INSTANCE.SetExperimentalDohFirst(if (enabled) 1 else 0)
+    }
+
+    fun setExperimentalWs80Headers(enabled: Boolean) {
+        ProxyLibrary.INSTANCE.SetExperimentalWs80Headers(if (enabled) 1 else 0)
+    }
+
+    fun setCfWs80Fallback(enabled: Boolean) {
+        try {
+            ProxyLibrary.INSTANCE.SetCfWs80Fallback(if (enabled) 1 else 0)
+        } catch (e: UnsatisfiedLinkError) {
+            if (enabled) throw e
+            // Compatibility with older bundled libraries: secure-only remains safe.
+        }
     }
 
     fun setCfWorkerDomains(domains: String) {

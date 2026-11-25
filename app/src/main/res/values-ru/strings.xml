@@ -127,4 +127,26 @@
     <string name="interval_never">Никогда</string>
     <string name="interval_hours">%1$d ч</string>
     <string name="port_is_not_available">"Порт %1$d используется, пожалуйста попробуйте другой "</string>
+
+    <string name="cf_ws80_title">Резервный Cloudflare WS/80 без TLS</string>
+    <string name="cf_ws80_info">Если защищённое соединение с Cloudflare не установилось, попробовать WebSocket через порт 80. Шифрование Telegram MTProto сохраняется, но дополнительного TLS нет: метаданные соединения могут быть видны сети.</string>
+    <string name="cf_ws80_confirm">Разрешить менее защищённый маршрут?</string>
+    <string name="cf_ws80_enable">Разрешить WS/80</string>
+    <string name="cf_ws80_cancel">Отмена</string>
+
+    <string name="experiment_section">Сетевые эксперименты</string>
+    <string name="experiment_sni_title">Эксперимент TLS SNI: kwsN</string>
+    <string name="experiment_sni_desc">Проверять сертификат TLS для поддомена kwsN вместо базового домена Cloudflare. Может вызвать ошибки сертификата; проверка TLS не отключается.</string>
+    <string name="experiment_doh_title">Эксперимент DNS: сначала DoH</string>
+    <string name="experiment_doh_desc">Сначала пробовать адрес, полученный через DoH, затем обычный домен. Сам по себе этот режим не маскирует MTProto.</string>
+    <string name="diagnostic_title">Записывать диагностический журнал</string>
+    <string name="diagnostic_desc">Локально сохранять ограниченный журнал соединений, ошибок и счётчиков. Экспорт TXT может содержать адреса серверов и сетевые параметры, но не сообщения Telegram.</string>
+    <string name="diagnostic_export">Сохранить TXT-диагностику</string>
+    <string name="diagnostic_exported">TXT-отчёт сохранён</string>
+    <string name="diagnostic_export_error">Не удалось сохранить TXT-отчёт</string>
+    <string name="update_download_failed">Ошибка обновления: %1$s</string>
+    <string name="update_download_started">Загрузка и проверка обновления…</string>
+
+    <string name="experiment_http_title">DPI-эксперимент: заголовки WS/80</string>
+    <string name="experiment_http_desc">Менять порядок HTTP-заголовков WebSocket и User-Agent. Влияет только на включённый WS/80, не гарантирует обход DPI.</string>
 </resources>

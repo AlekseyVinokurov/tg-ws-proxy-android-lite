@@ -1,0 +1,59 @@
+name: Bootstrap permanent Pixel Eco signing key (one time)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pixel-eco-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: github.repository == 'AlekseyVinokurov/tg-ws-proxy-android-lite' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Generate permanent key, encrypted at rest in the repository
+        env:
+          PASSPHRASE: ${{ secrets.PIXEL_ECO_RELEASE_KEY_PASSPHRASE }}
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PASSPHRASE" && test "${#PASSPHRASE}" -ge 32
+          if [[ -e release/pixel-eco-release.p12.gpg || -e release/certificate.sha256 ]]; then
+            echo "::error::Permanent key already exists: refusing to rotate."
+            exit 1
+          fi
+          mkdir -p release
+          KEY="$RUNNER_TEMP/pixel-eco-release.p12"
+          trap 'rm -f "$KEY"' EXIT
+          keytool -genkeypair -noprompt -storetype PKCS12 \
+            -keystore "$KEY" -alias pixel-eco-release -keyalg RSA -keysize 3072 \
+            -validity 10000 -dname "CN=TG WS Proxy Pixel Eco, O=Open Source" \
+            -storepass "$PASSPHRASE" -keypass "$PASSPHRASE"
+          keytool -exportcert -storetype PKCS12 -keystore "$KEY" \
+            -storepass "$PASSPHRASE" -alias pixel-eco-release -rfc \
+            | openssl x509 -outform DER | sha256sum | awk '{print $1}' \
+            > release/certificate.sha256
+          printf '%s\n' "$PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 --s2k-mode 3 \
+            --s2k-digest-algo SHA512 --output release/pixel-eco-release.p12.gpg "$KEY"
+          test -s release/pixel-eco-release.p12.gpg
+          test "$(wc -c < release/certificate.sha256)" -eq 65
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release/pixel-eco-release.p12.gpg release/certificate.sha256
+          git commit -m "release: bootstrap permanent Pixel Eco signing identity"
+          git push origin HEAD:main
+          echo "Encrypted keystore and public signing certificate pin committed."
+          echo "Starting the signed release workflow using the freshly persisted identity."
+          gh workflow run release-pixel-eco.yml --repo "$GITHUB_REPOSITORY" --ref main
+          echo "Keep the environment passphrase backed up privately; NEVER rotate this identity."

@@ -88,6 +88,11 @@ fun SettingsTab(settingsStore: SettingsStore) {
     val savedBindIp by settingsStore.bindIp.collectAsStateWithLifecycle(initialValue = "127.0.0.1")
     val savedPoolSize by settingsStore.poolSize.collectAsStateWithLifecycle(initialValue = 1)
     val savedCfEnabled by settingsStore.cfproxyEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val savedCfWs80 by settingsStore.cfWs80Fallback.collectAsStateWithLifecycle(initialValue = false)
+    val savedSniExperiment by settingsStore.experimentSniSubdomain.collectAsStateWithLifecycle(initialValue = false)
+    val savedDohExperiment by settingsStore.experimentDohFirst.collectAsStateWithLifecycle(initialValue = false)
+    val savedHttpExperiment by settingsStore.experimentWs80Headers.collectAsStateWithLifecycle(initialValue = false)
+    val savedDiagnostics by settingsStore.diagnosticRecording.collectAsStateWithLifecycle(initialValue = false)
     val savedCustomDomainEnabled by settingsStore.customCfDomainEnabled.collectAsStateWithLifecycle(initialValue = false)
     val savedCustomDomain by settingsStore.customCfDomain.collectAsStateWithLifecycle(initialValue = "")
     val autoStartOnBoot by settingsStore.autoStartOnBoot.collectAsStateWithLifecycle(initialValue = false)
@@ -150,6 +155,28 @@ fun SettingsTab(settingsStore: SettingsStore) {
                 cfEnabled, customCfDomainEnabled, customCfDomain, secretKeyText
             )
         }
+    }
+
+    var showWs80Confirmation by rememberSaveable { mutableStateOf(false) }
+    if (showWs80Confirmation) {
+        AlertDialog(
+            onDismissRequest = { showWs80Confirmation = false },
+            title = { Text(stringResource(com.amurcanov.tgwsproxy.R.string.cf_ws80_confirm)) },
+            text = { Text(stringResource(com.amurcanov.tgwsproxy.R.string.cf_ws80_info)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showWs80Confirmation = false
+                    scope.launch { settingsStore.saveCfWs80Fallback(true) }
+                }) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.cf_ws80_enable))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWs80Confirmation = false }) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.cf_ws80_cancel))
+                }
+            }
+        )
     }
 
     var showIpSetupDialog by rememberSaveable { mutableStateOf(false) }
@@ -403,9 +430,112 @@ fun SettingsTab(settingsStore: SettingsStore) {
                     onCheckedChange = {
                         cfEnabled = it
                         isDcAuto = it
+                        if (!it) scope.launch { settingsStore.saveCfWs80Fallback(false) }
                         scheduleSave()
                     },
                     enabled = !isRunning
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(com.amurcanov.tgwsproxy.R.string.cf_ws80_title),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Switch(
+                    checked = savedCfWs80 && cfEnabled,
+                    onCheckedChange = { allow ->
+                        if (allow) showWs80Confirmation = true
+                        else scope.launch { settingsStore.saveCfWs80Fallback(false) }
+                    },
+                    enabled = !isRunning && cfEnabled
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            Text(
+                stringResource(com.amurcanov.tgwsproxy.R.string.experiment_section),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_sni_title),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_sni_desc),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = savedSniExperiment,
+                    enabled = !isRunning && cfEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsStore.saveExperimentSniSubdomain(enabled) }
+                    }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_doh_title),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_doh_desc),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = savedDohExperiment,
+                    enabled = !isRunning && cfEnabled,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsStore.saveExperimentDohFirst(enabled) }
+                    }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_http_title),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.experiment_http_desc),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = savedHttpExperiment,
+                    enabled = !isRunning && cfEnabled && savedCfWs80,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsStore.saveExperimentWs80Headers(enabled) }
+                    }
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.diagnostic_title),
+                        style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(com.amurcanov.tgwsproxy.R.string.diagnostic_desc),
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = savedDiagnostics,
+                    enabled = !isRunning,
+                    onCheckedChange = { enabled ->
+                        scope.launch { settingsStore.saveDiagnosticRecording(enabled) }
+                    }
                 )
             }
 

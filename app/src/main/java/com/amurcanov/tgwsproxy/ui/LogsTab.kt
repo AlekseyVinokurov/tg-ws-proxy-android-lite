@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -32,14 +34,37 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.amurcanov.tgwsproxy.LogEntry
 import com.amurcanov.tgwsproxy.LogManager
+import com.amurcanov.tgwsproxy.DiagnosticRecorder
 import com.amurcanov.tgwsproxy.SettingsStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsTab(settingsStore: SettingsStore) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri != null) scope.launch(Dispatchers.IO) {
+            val result = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    out.write(DiagnosticRecorder.exportText(context).toByteArray(Charsets.UTF_8))
+                } ?: error("Cannot open selected file")
+            }
+            withContext(Dispatchers.Main) {
+                val message = if (result.isSuccess) {
+                    com.amurcanov.tgwsproxy.R.string.diagnostic_exported
+                } else {
+                    com.amurcanov.tgwsproxy.R.string.diagnostic_export_error
+                }
+                Toast.makeText(context, context.getString(message), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     val currentLogs by LogManager.logs.collectAsStateWithLifecycle()
 
     val savedInfo by settingsStore.logShowInfo.collectAsStateWithLifecycle(initialValue = SettingsStore.DEFAULT_LOG_SHOW_INFO)
@@ -108,6 +133,13 @@ fun LogsTab(settingsStore: SettingsStore) {
                     Icon(Icons.Default.ContentCopy, contentDescription = stringResource(com.amurcanov.tgwsproxy.R.string.copy), tint = MaterialTheme.colorScheme.primary)
                 }
             }
+        }
+
+        Button(
+            onClick = { exportLauncher.launch("pixel-eco-diagnostics.txt") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(com.amurcanov.tgwsproxy.R.string.diagnostic_export))
         }
 
         Row(

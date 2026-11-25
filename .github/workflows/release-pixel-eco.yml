@@ -1,0 +1,131 @@
+name: Publish signed Pixel Eco APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pixel-eco-publish
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'AlekseyVinokurov/tg-ws-proxy-android-lite' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      PIXEL_ECO_STORE_PASSWORD: ${{ secrets.PIXEL_ECO_RELEASE_KEY_PASSPHRASE }}
+      PIXEL_ECO_KEY_PASSWORD: ${{ secrets.PIXEL_ECO_RELEASE_KEY_PASSPHRASE }}
+      PIXEL_ECO_REQUIRE_SIGNING: "1"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set temporary signing path on hosted runner
+        shell: bash
+        run: echo "PIXEL_ECO_KEYSTORE_FILE=$RUNNER_TEMP/pixel-eco-release.p12" >> "$GITHUB_ENV"
+
+      - name: Restore permanent release identity and verify pinned signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${#PIXEL_ECO_STORE_PASSWORD}" -ge 32
+          test -s release/pixel-eco-release.p12.gpg
+          test -s release/certificate.sha256
+          printf '%s\n' "$PIXEL_ECO_STORE_PASSWORD" \
+            | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+              --decrypt --output "$PIXEL_ECO_KEYSTORE_FILE" release/pixel-eco-release.p12.gpg
+          chmod 600 "$PIXEL_ECO_KEYSTORE_FILE"
+          expected="$(tr -d '[:space:]' < release/certificate.sha256)"
+          actual="$(keytool -exportcert -storetype PKCS12 \
+            -keystore "$PIXEL_ECO_KEYSTORE_FILE" -storepass "$PIXEL_ECO_STORE_PASSWORD" \
+            -alias pixel-eco-release -rfc \
+            | openssl x509 -outform DER | sha256sum | awk '{print $1}')"
+          test "$actual" = "$expected"
+          echo "Permanent signing certificate verified against repository pin."
+
+      - name: Test Rust core
+        run: cargo test --locked --lib
+
+      - name: Compile Android ARM64 library from source
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'ndk;26.3.11579264'
+          rustup target add aarch64-linux-android
+          NDK="${ANDROID_HOME}/ndk/26.3.11579264/toolchains/llvm/prebuilt/linux-x86_64"
+          test -x "$NDK/bin/aarch64-linux-android24-clang"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$NDK/bin/aarch64-linux-android24-clang"
+          export CC_aarch64_linux_android="$NDK/bin/aarch64-linux-android24-clang"
+          export AR_aarch64_linux_android="$NDK/bin/llvm-ar"
+          cargo build --locked --release --target aarch64-linux-android
+          lib="target/aarch64-linux-android/release/libtgwsproxy.so"
+          test -s "$lib"
+          symbols="$("$NDK/bin/llvm-nm" -D "$lib")"
+          for name in StartProxy StopProxy SetCfWs80Fallback SetExperimentalTlsSubdomainSni SetExperimentalDohFirst SetExperimentalWs80Headers; do
+            grep -qE " [TW] ${name}$" <<< "$symbols"
+          done
+          cp "$lib" app/src/main/jniLibs/arm64-v8a/libtgwsproxy.so
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+
+      - name: Produce permanently signed release APK
+        run: gradle :app:assembleArm64Release --no-daemon
+
+      - name: Check APK signature, application identity, version and hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/arm64/release/app-arm64-release.apk"
+          test -s "$APK"
+          apksigner="$(find "${ANDROID_HOME}/build-tools" -type f -name apksigner | sort -V | tail -n1)"
+          aapt="$(find "${ANDROID_HOME}/build-tools" -type f -name aapt | sort -V | tail -n1)"
+          test -x "$apksigner" && test -x "$aapt"
+          "$apksigner" verify --print-certs "$APK" > "$RUNNER_TEMP/pixel-eco-signer.txt"
+          pin="$(tr -d '[:space:]' < release/certificate.sha256)"
+          grep -Fi "Signer #1 certificate SHA-256 digest: $pin" "$RUNNER_TEMP/pixel-eco-signer.txt"
+          version_name="$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)"
+          version_code="$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts | head -1)"
+          test -n "$version_name" && test -n "$version_code"
+          "$aapt" dump badging "$APK" > "$RUNNER_TEMP/pixel-eco-badging.txt"
+          grep -F "package: name='com.amurcanov.tgwsproxy.pixel8lite'" "$RUNNER_TEMP/pixel-eco-badging.txt"
+          grep -F "versionCode='$version_code'" "$RUNNER_TEMP/pixel-eco-badging.txt"
+          grep -F "versionName='$version_name'" "$RUNNER_TEMP/pixel-eco-badging.txt"
+          target="TG-WS-Proxy-Pixel-Eco-$version_name.apk"
+          cp "$APK" "$target"
+          sha256sum "$target" | tee release-apk-sha256.txt
+          echo "RELEASE_APK=$target" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=v$version_name" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$version_name" >> "$GITHUB_ENV"
+
+      - name: Publish exact signed APK as stable GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "release/notes-$RELEASE_TAG.md"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Release already exists; refusing to replace a published APK."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" "$RELEASE_APK" \
+            --target "$GITHUB_SHA" \
+            --title "TG WS Proxy Pixel Eco $RELEASE_VERSION" \
+            --notes-file "release/notes-$RELEASE_TAG.md" --latest
+          gh release view "$RELEASE_TAG" --json tagName,url,assets
+          echo "Published $RELEASE_TAG from immutable commit $GITHUB_SHA"
+
+      - name: Clean up unlocked signing key
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/pixel-eco-release.p12" "$RUNNER_TEMP/pixel-eco-signer.txt"

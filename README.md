@@ -1,264 +1,86 @@
-# TG WS Proxy Android — Pixel Eco
+**English** · [Русский](README.ru.md)
 
-Battery-focused fork of **amurcanov/tg-ws-proxy-android**, prepared specifically for testing on **Google Pixel 8 (arm64-v8a)**.
+# TG WS Proxy — Pixel Eco
 
-This fork keeps the original Telegram WS/MTProto proxy logic, Cloudflare routing, DC handling, secret-key flow and fallback behavior, while reducing background work that can keep a Pixel awake and consume battery when Telegram is idle.
+An experimental, lightweight **local Telegram MTProto proxy** for Android, focused on reducing background activity on Pixel devices. Built from [amurcanov/tg-ws-proxy-android](https://github.com/amurcanov/tg-ws-proxy-android); original authors and GPLv3 notices are retained.
 
-> This is an experimental personal fork. The goal is lower idle battery usage without changing the proxy protocol itself.
+It is a **separate app**, not a VPN or a replacement Telegram client. You start a local proxy and select it in Telegram.
 
-## Pixel Eco v2 fixes
+## Project status
 
-The first Pixel Eco build exposed a UI/startup problem during real-device testing: the app could remain in a non-running state with the Telegram apply button disabled and without an obvious explicit start control.
+| Item | Status |
+| --- | --- |
+| Target | Pixel 8 / ARM64, Android 17 is the owner's primary test environment |
+| Last published APK | [pixel8-stable-go-v1](https://github.com/AlekseyVinokurov/tg-ws-proxy-android-lite/releases/tag/pixel8-stable-go-v1) — **does not contain the new mobile-network fix** |
+| Next candidate | `1.2.4-pixel8-lite.1` (`versionCode 126`), source-built Rust core, pending CI and device tests |
+| Distribution | GitHub Releases for published builds; Actions artifacts are **test builds only** |
 
-Version **1.2.3-pixel8-lite.2** fixes that test failure:
+The previously published APK and the current source may use different native implementations. Do not assume a code change is present in the downloaded release.
 
-- adds an explicit **Start proxy / Stop proxy** button on the main screen;
-- keeps **Apply in Telegram** disabled until the proxy is actually verified as running;
-- prevents the UI from remaining stuck forever in **Connecting** after a failed native start;
-- changes the default local port to **1444** so Pixel Eco can coexist with an installed upstream build that commonly uses 1443;
-- changes the first-test WS pool default from 0 to **1** for a safer balance between battery use and connection reliability;
-- removes LeakCanary from the debug test APK so the battery experiment is not polluted by a debug-only leak detector;
-- keeps the permanent Android wake lock removed and stats polling at 60 seconds.
+## What Pixel Eco changes
 
-If another local proxy already owns port 1444, choose another free local port in Settings.
+- Removes the permanent CPU partial wake lock; the Android foreground service still runs while manually enabled.
+- Reduces background traffic/statistics refresh frequency to 60 seconds.
+- Uses a default WebSocket pool size of **1**, adjustable to **0, 1, 2 or 4**. Disabling preconnections may slow the first request.
+- Starts on local port **1444**, to avoid a clash with another proxy commonly using 1443.
+- Uses a distinct Android package ID: `com.amurcanov.tgwsproxy.pixel8lite`, so it can coexist with the upstream app.
+- Boot autostart is **off by default**.
 
-## What was changed
+These are engineering choices, **not proven battery-life gains**. Test connectivity and power use on your own device.
 
-### 1. Permanent CPU wake lock removed
+## Mobile-network fallback (candidate)
 
-The upstream Android service held a `PARTIAL_WAKE_LOCK` continuously and refreshed it periodically.
+The new **optional Cloudflare WS/80 fallback** is meant for networks where TCP connections succeed but TLS/WebSocket negotiation to Cloudflare fails.
 
-Pixel Eco removes:
+1. Stop the proxy and open **Settings**.
+2. Leave Cloudflare enabled and turn on **Cloudflare WS/80 fallback (no TLS)**.
+3. Read and confirm the security warning; restart the local proxy.
+4. Apply the proxy in Telegram; check that messages and media actually load.
 
-- the `WAKE_LOCK` permission;
-- permanent `PowerManager.PARTIAL_WAKE_LOCK`;
-- periodic wake-lock refresh.
+The native engine first attempts **WSS/443** with the Cloudflare base domain as the verified TLS server name, while keeping `kwsN.<base-domain>` as the HTTP Host. On eligible connection failures, it may retry **plain WS/80** if explicitly enabled. Certificate verification failures and HTTP errors do **not** trigger an automatic plaintext downgrade. Direct Telegram WebSockets and TCP fallback are separate routes.
 
-The proxy still runs as an Android foreground service, but the phone is allowed to enter normal idle/deep-idle states when there is no useful socket activity.
+**Security:** plain WebSocket has **no additional TLS authentication or metadata confidentiality**. Telegram MTProto still encrypts message content, but a network observer may see more connection metadata. The option is **disabled by default**. It is not guaranteed to work across carriers, regions or devices.
 
-### 2. Background statistics polling reduced
+This new logic has not yet been verified in a standalone Pixel Eco APK. A similar WS/80 mechanism was confirmed in [Velora 0.1.5](https://github.com/AlekseyVinokurov/Velora/releases/tag/v0.1.5) on one Pixel 8/mobile network, but that test does not establish this separate app's behavior.
 
-Upstream polled native proxy statistics approximately every **3 seconds**.
+## Release signing and updates
 
-Pixel Eco changes this to **60 seconds**.
+Starting with the **1.2.4** candidate, official builds use a **permanent signing identity** encrypted in the repository. The passphrase is stored in the repository's GitHub Actions Secrets. The [Bootstrap signing](.github/workflows/bootstrap-signing.yml) workflow creates the key **once** and refuses rotation. One command generates a random 32-byte passphrase and pipes it directly to repository GitHub Secret `PIXEL_ECO_RELEASE_KEY_PASSPHRASE`. If the GitHub secret is ever lost, the encrypted key cannot be recovered without a backup of that passphrase.
 
-This reduces Java/Kotlin wakeups and notification churn while keeping basic traffic/session statistics available.
+The [Publish signed Pixel Eco APK](.github/workflows/release-pixel-eco.yml) workflow rebuilds Rust and Android on a **GitHub-hosted runner**, signs with that identity, verifies the pinned certificate SHA-256, and publishes an official GitHub Release. No local Android compilation or signing.
 
-### 3. WebSocket preconnect pool defaults to 0
+**The previous `pixel8-stable-go-v1` APK used a temporary runner debug key that was not preserved. Android cannot upgrade it in place.** The first switch to the new signing identity requires uninstalling the old Pixel Eco, losing its settings. Subsequent official builds can update in place as long as the permanent identity and `applicationId` remain unchanged.
 
-Upstream default:
+The in-app updater accepts only stable GitHub Releases and checks the asset SHA-256, package ID, higher `versionCode` and exact installed signing certificate before launching the normal Android installer. This updater is **not yet present in the older published APK**.
 
-```text
-WS pool = 4
-```
+## Experimental transport controls and TXT diagnostics
 
-Pixel Eco default:
+Independent settings allow testing **WS/80 opt-in**, a certificate-verified **kwsN TLS SNI** instead of the base-domain SNI, and **DoH-first** routing, and a **WS/80 HTTP-header fingerprint experiment** that changes the header order and User-Agent when WS/80 is enabled. They may degrade connectivity and do not guarantee DPI evasion.
 
-```text
-WS pool = 0
-```
+Enable **Record diagnostic log** before starting the proxy. An app-private, size-limited background capture records network events, endpoints, transport failures, current network type and WSS/WS80 counters. In **Logs**, tap **Save diagnostic TXT** to export using Android's file picker. The report can expose network IP/host metadata; review it before sharing. Secrets and long hex tokens are redacted on a best-effort basis.
 
-The Rust core already supports `pool_size <= 0` as “preconnect disabled”, so this fork uses the existing mechanism instead of inventing a new one.
+## Install and use
 
-The settings screen now offers:
+Get a published APK from [Releases](https://github.com/AlekseyVinokurov/tg-ws-proxy-android-lite/releases). For experimental PR builds, use the APK artifact in [Actions](https://github.com/AlekseyVinokurov/tg-ws-proxy-android-lite/actions).
 
-```text
-0 / 1 / 2 / 4
-```
+1. Install the APK, open **TG WS Proxy Pixel Eco**, and choose a free local port (default **1444**).
+2. Keep **WS pool = 1** initially and press **Start proxy**.
+3. Use **Apply in Telegram** to configure the local MTProto proxy.
+4. Verify real connectivity, including after switching between Wi-Fi and mobile data.
+5. Stop the proxy manually when it is not needed.
 
-Recommended starting point for Pixel 8 v2: **1**. After confirming stable operation, test **0** as a more aggressive battery-saving mode.
 
-If Telegram feels noticeably slower when opening a cold connection, try **1** before increasing further.
 
-### 4. Native proxy core intentionally left unchanged
+## Source, builds and maintenance
 
-The first Pixel Eco build does **not** modify the Rust networking core or its keepalive timings.
+The new workflow [`build-pixel8.yml`](.github/workflows/build-pixel8.yml) runs on **GitHub-hosted runners**. It tests the Rust source, rebuilds the Android ARM64 native library and packages it into the debug APK. A successful Gradle build alone does not prove the network proxy works. No local Android build is required.
 
-Reason: the upstream repository currently relies on a bundled native library for Android, while a clean Rust rebuild from the checked-in sources is incomplete in the forked source tree. For the first battery experiment, keeping the proven bundled `arm64-v8a` library is safer and isolates the Android-side power changes.
+This repository also contains archived Go code in `old_src_golang/`. It is **not** the native implementation used by the new Rust-source build. The missing `src/faketls.rs` file was restored from the GPLv3 upstream to make the checked-in Rust source complete.
 
-### 5. Automatic update checking disabled by default
+Known limitations: primary ARM64 target only, no universal-device test coverage, no verified automatic in-app update path for test APKs, and no guarantee of bypassing network filtering.
 
-The fork does not wake periodically just to check upstream releases.
+For bugs, device reports and suggestions use [GitHub Issues](https://github.com/AlekseyVinokurov/tg-ws-proxy-android-lite/issues).
 
-Manual update checks point to this fork:
+## License and acknowledgments
 
-`AlekseyVinokurov/tg-ws-proxy-android-lite`
-
-### 6. Separate application identity
-
-Package ID:
-
-```text
-com.amurcanov.tgwsproxy.pixel8lite
-```
-
-App label:
-
-```text
-TG WS Proxy Pixel Eco
-```
-
-This lets the Pixel Eco build be installed **alongside** the original application for A/B battery testing.
-
-Do not run both proxy services on the same local port at the same time.
-
-## What was NOT changed
-
-The following upstream behavior is intentionally preserved:
-
-- local MTProto proxy model;
-- Telegram integration via local proxy link;
-- Cloudflare WebSocket routing;
-- direct Telegram DC routing;
-- DC selection and media DC handling;
-- secret generation and proxy authentication;
-- Rust networking core and encryption flow;
-- direct/CF fallback logic;
-- foreground-service model;
-- boot/autostart option;
-- logs and diagnostics.
-
-The first test build changes only the main battery-related background behavior so failures are easier to attribute.
-
-## Pixel 8 test build
-
-Target architecture:
-
-```text
-arm64-v8a
-```
-
-Minimum Android API for this flavor:
-
-```text
-24
-```
-
-The APK is built by GitHub Actions using:
-
-1. Java 17
-2. the upstream bundled `arm64-v8a/libtgwsproxy.so`
-3. Gradle arm64 debug APK
-
-The workflow file is:
-
-```text
-.github/workflows/build-pixel8.yml
-```
-
-Artifact name:
-
-```text
-tg-ws-proxy-pixel8-eco
-```
-
-APK inside the artifact:
-
-```text
-tg-ws-proxy-pixel8-eco.apk
-```
-
-The debug build is signed automatically with the Android debug key generated by the GitHub Actions runner and is intended for personal testing.
-
-## Installation on Pixel 8
-
-1. Download the latest `tg-ws-proxy-pixel8-eco.apk` build artifact.
-2. Install the APK on the Pixel 8.
-3. Open **TG WS Proxy Pixel Eco**.
-4. Keep **WS pool = 1** for the first functional/battery test. If it stays stable, test pool 0 afterward.
-5. Start the proxy.
-6. Apply the local proxy in Telegram.
-7. Stop the original TG WS Proxy if it is installed and running.
-8. Use Telegram normally.
-
-Because the package ID is different, the original and Pixel Eco versions can coexist.
-
-## Recommended first test
-
-Use one normal day or one overnight period.
-
-Start with:
-
-```text
-WS pool: 1
-Cloudflare: same setting that already works for you
-Autostart: optional
-Pixel battery optimization: leave at the Android default initially
-```
-
-Do not whitelist the app from battery optimization before the first test. The point is to see whether it can remain functional under normal Pixel power management without a permanent wake lock.
-
-### What to check
-
-After several hours, compare:
-
-- whether Telegram remains connected;
-- delay when opening Telegram after a long idle period;
-- message send/receive reliability;
-- image/video loading;
-- reconnection after Wi-Fi ↔ mobile-data transition;
-- reconnection after screen-off idle;
-- battery usage shown for TG WS Proxy Pixel Eco;
-- overall overnight battery drain.
-
-If pool 0 is reliable but cold startup is too slow, test **pool 1** next.
-
-## Expected trade-off
-
-Removing the permanent wake lock and disabling pre-warmed sockets should reduce idle consumption, but Android may occasionally suspend the process more aggressively.
-
-That can cause:
-
-- a short reconnect after long idle;
-- slower first connection;
-- a need to restart the proxy after an unusual network transition.
-
-That behavior is preferable for this experiment to keeping the Pixel CPU and radio needlessly active all day.
-
-If reliability becomes unacceptable, changes should be reintroduced one at a time rather than restoring every upstream battery-expensive behavior at once.
-
-## Current Pixel Eco tuning
-
-```text
-Permanent PARTIAL_WAKE_LOCK : removed
-Stats polling                : 60 seconds
-Default WS pool              : 1
-Available WS pool values     : 0, 1, 2, 4
-Native WS/TCP keepalive     : unchanged from upstream
-Background update checks     : disabled by default
-Target APK                   : arm64-v8a / Pixel 8
-```
-
-## Rollback
-
-The original upstream application is not modified.
-
-If Pixel Eco has a regression:
-
-1. stop Pixel Eco;
-2. disable its local proxy in Telegram;
-3. start the original TG WS Proxy;
-4. re-apply the original local proxy configuration.
-
-Because the applications use different package IDs, uninstalling either one does not require removing the other.
-
-## Source and license
-
-This repository is a fork of:
-
-- **amurcanov/tg-ws-proxy-android**
-- original tg-ws-proxy concept/code lineage credited by upstream to Flowseal
-
-This fork remains under the upstream **GPLv3** licensing terms. See [LICENSE](LICENSE).
-
-Changes in this fork are focused on Android/Pixel battery behavior and build automation. Upstream authorship and attribution remain intact.
-
-## Status
-
-**Pixel Eco test build 1**
-
-Main objective:
-
-> Determine whether TG WS Proxy can remain reliable on Pixel 8 without a permanent wake lock and without four permanently pre-warmed WebSocket connections.
-
-Results should be judged from real Pixel 8 battery statistics and connection reliability before making further power-saving changes.
+GPL-3.0 — see [LICENSE](LICENSE). Original implementation: [amurcanov/tg-ws-proxy-android](https://github.com/amurcanov/tg-ws-proxy-android), with earlier ideas and components from [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy). The optional Cloudflare transport was independently adapted after work on [Velora](https://github.com/AlekseyVinokurov/Velora). Original copyright and attribution must remain intact.

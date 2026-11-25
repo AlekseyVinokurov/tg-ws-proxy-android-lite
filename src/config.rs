@@ -100,6 +100,13 @@ impl Default for Cfproxy429State {
 
 // Cloudflare proxy config
 pub static CFPROXY_ENABLED: AtomicBool = AtomicBool::new(true);
+// Never silently downgrade CF traffic to plaintext WebSocket (port 80).
+pub static CF_WS80_FALLBACK: AtomicBool = AtomicBool::new(false);
+// Independent A/B experiments; defaults preserve the verified base-domain route.
+pub static EXP_TLS_SUBDOMAIN_SNI: AtomicBool = AtomicBool::new(false);
+pub static EXP_DOH_FIRST: AtomicBool = AtomicBool::new(false);
+// Experimental WS/80 HTTP header order; no packet fragmentation or decryption.
+pub static EXP_WS80_HEADERS: AtomicBool = AtomicBool::new(false);
 
 pub struct CfproxyConfig {
     pub user_domain: String,
@@ -338,6 +345,12 @@ pub struct Stats {
     pub pool_misses: AtomicI64,
     pub cf_pool_hits: AtomicI64,
     pub cf_pool_misses: AtomicI64,
+    pub cf_wss_try: AtomicI64,
+    pub cf_wss_ok: AtomicI64,
+    pub cf_wss_fail: AtomicI64,
+    pub cf_ws80_try: AtomicI64,
+    pub cf_ws80_ok: AtomicI64,
+    pub cf_ws80_fail: AtomicI64,
 }
 
 pub static STATS: Lazy<Stats> = Lazy::new(Stats::default);
@@ -361,7 +374,7 @@ impl Stats {
             "n/a".to_string()
         };
         format!(
-            "total={} active={} ws={} tcp_fb={} cf={} front={} bad={} masked={} err={} pool={} cf_pool={} up={} down={}",
+            "total={} active={} ws={} tcp_fb={} cf={} front={} bad={} masked={} err={} pool={} cf_pool={} up={} down={} cf_wss_try={} cf_wss_ok={} cf_wss_fail={} cf_ws80_try={} cf_ws80_ok={} cf_ws80_fail={}",
             self.connections_total.load(Ordering::Relaxed),
             self.connections_active.load(Ordering::Relaxed),
             self.connections_ws.load(Ordering::Relaxed),
@@ -375,6 +388,12 @@ impl Stats {
             cf_pool_s,
             human_bytes(self.bytes_up.load(Ordering::Relaxed)),
             human_bytes(self.bytes_down.load(Ordering::Relaxed)),
+            self.cf_wss_try.load(Ordering::Relaxed),
+            self.cf_wss_ok.load(Ordering::Relaxed),
+            self.cf_wss_fail.load(Ordering::Relaxed),
+            self.cf_ws80_try.load(Ordering::Relaxed),
+            self.cf_ws80_ok.load(Ordering::Relaxed),
+            self.cf_ws80_fail.load(Ordering::Relaxed),
         )
     }
 
@@ -416,6 +435,12 @@ impl Stats {
         self.connections_http_reject.store(0, Ordering::Relaxed);
         self.connections_passthrough.store(0, Ordering::Relaxed);
         self.ws_errors.store(0, Ordering::Relaxed);
+        self.cf_wss_try.store(0, Ordering::Relaxed);
+        self.cf_wss_ok.store(0, Ordering::Relaxed);
+        self.cf_wss_fail.store(0, Ordering::Relaxed);
+        self.cf_ws80_try.store(0, Ordering::Relaxed);
+        self.cf_ws80_ok.store(0, Ordering::Relaxed);
+        self.cf_ws80_fail.store(0, Ordering::Relaxed);
         self.bytes_up.store(0, Ordering::Relaxed);
         self.bytes_down.store(0, Ordering::Relaxed);
         self.pool_hits.store(0, Ordering::Relaxed);

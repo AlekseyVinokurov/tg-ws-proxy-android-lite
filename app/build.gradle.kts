@@ -12,8 +12,8 @@ android {
     defaultConfig {
         applicationId = "com.amurcanov.tgwsproxy.pixel8lite"
         targetSdk = 35
-        versionCode = 125
-        versionName = "1.2.3-pixel8-lite.2"
+        versionCode = 126
+        versionName = "1.2.4-pixel8-lite.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -55,9 +55,12 @@ android {
         localProperties.load(localPropertiesFile.inputStream())
     }
 
+    val ciKeyPath = System.getenv("PIXEL_ECO_KEYSTORE_FILE")?.takeIf { it.isNotBlank() }
+    val requireCiSigning = System.getenv("PIXEL_ECO_REQUIRE_SIGNING") == "1"
+
     signingConfigs {
         create("release") {
-            val keyFile = localProperties.getProperty("KEYSTORE_FILE")
+            val keyFile = ciKeyPath ?: localProperties.getProperty("KEYSTORE_FILE")
             if (keyFile != null) {
                 // Резолвим путь: если начинается с "..", берём от корня проекта
                 val resolvedFile = if (keyFile.startsWith("..")) {
@@ -68,9 +71,9 @@ android {
                 }
                 if (resolvedFile.exists()) {
                     storeFile = resolvedFile
-                    storePassword = localProperties.getProperty("KEYSTORE_PASSWORD")
-                    keyAlias = localProperties.getProperty("KEY_ALIAS")
-                    keyPassword = localProperties.getProperty("KEY_PASSWORD")
+                    storePassword = if (ciKeyPath != null) System.getenv("PIXEL_ECO_STORE_PASSWORD") else localProperties.getProperty("KEYSTORE_PASSWORD")
+                    keyAlias = if (ciKeyPath != null) "pixel-eco-release" else localProperties.getProperty("KEY_ALIAS")
+                    keyPassword = if (ciKeyPath != null) System.getenv("PIXEL_ECO_KEY_PASSWORD") else localProperties.getProperty("KEY_PASSWORD")
                 } else {
                     println("WARNING: Keystore file not found: $keyFile (resolved: ${resolvedFile.absolutePath})")
                 }
@@ -89,7 +92,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            val keyFile = localProperties.getProperty("KEYSTORE_FILE")
+            val keyFile = ciKeyPath ?: localProperties.getProperty("KEYSTORE_FILE")
             val resolvedFile = if (keyFile != null && keyFile.startsWith("..")) {
                 file(rootDir.resolve(keyFile.substring(3)))
             } else if (keyFile != null) {
@@ -98,8 +101,12 @@ android {
             
             if (resolvedFile != null && resolvedFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
-                println("✅ Signing config applied: ${resolvedFile.absolutePath}")
+                if (requireCiSigning && ciKeyPath == null) error("CI release signing must use the protected keystore")
+                println("Permanent signing configured")
             } else {
+                if (requireCiSigning) {
+                    error("Refusing unsigned or debug-signed release build: permanent keystore missing")
+                }
                 println("⚠️ WARNING: Keystore not found, using debug signing")
                 println("   Looked for: ${resolvedFile?.absolutePath ?: keyFile}")
             }

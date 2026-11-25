@@ -21,6 +21,8 @@ app/src/main/jniLibs/
 local.properties
 *.jks
 *.keystore
+*.p12
+*.pfx
 release.keystore
 gradle/gradle-daemon-jvm.properties
 
