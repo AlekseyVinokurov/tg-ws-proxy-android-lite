@@ -30,7 +30,7 @@ object DiagnosticRecorder {
     fun start(context: Context) {
         if (!running.compareAndSet(false, true)) return
         val appContext = context.applicationContext
-        synchronized(lock) { logFile = File(appContext.filesDir, "proxy-diagnostics.txt") }
+        synchronized(lock) { logFile = File(appContext.noBackupFilesDir, "proxy-diagnostics.txt") }
         event(appContext, "recording_start version=${BuildConfig.VERSION_NAME} sdk=${Build.VERSION.SDK_INT}")
         worker = Thread({
             try {
@@ -64,9 +64,10 @@ object DiagnosticRecorder {
     }
 
     fun event(context: Context, text: String) {
+        if (!running.get()) return
         // A limited start/stop/metrics record is useful even if verbose logcat is disabled.
         synchronized(lock) {
-            if (logFile == null) logFile = File(context.applicationContext.filesDir, "proxy-diagnostics.txt")
+            if (logFile == null) logFile = File(context.applicationContext.noBackupFilesDir, "proxy-diagnostics.txt")
         }
         append("[event] $text")
     }
@@ -95,7 +96,7 @@ object DiagnosticRecorder {
 
     fun exportText(context: Context): String {
         val body = synchronized(lock) {
-            val file = File(context.applicationContext.filesDir, "proxy-diagnostics.txt")
+            val file = File(context.applicationContext.noBackupFilesDir, "proxy-diagnostics.txt")
             if (file.exists()) file.readText() else "No recorded diagnostics. Enable recording before starting proxy."
         }
         val stats = try { NativeProxy.getStats().orEmpty() } catch (_: Throwable) { "not available" }
