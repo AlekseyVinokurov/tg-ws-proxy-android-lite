@@ -127,4 +127,10 @@
     <string name="interval_never">Никогда</string>
     <string name="interval_hours">%1$d ч</string>
     <string name="port_is_not_available">"Порт %1$d используется, пожалуйста попробуйте другой "</string>
+
+    <string name="cf_ws80_title">Резервный Cloudflare WS/80 без TLS</string>
+    <string name="cf_ws80_info">Если защищённое соединение с Cloudflare не установилось, попробовать WebSocket через порт 80. Шифрование Telegram MTProto сохраняется, но дополнительного TLS нет: метаданные соединения могут быть видны сети.</string>
+    <string name="cf_ws80_confirm">Разрешить менее защищённый маршрут?</string>
+    <string name="cf_ws80_enable">Разрешить WS/80</string>
+    <string name="cf_ws80_cancel">Отмена</string>
 </resources>
