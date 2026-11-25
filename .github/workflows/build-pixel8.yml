@@ -20,6 +20,10 @@ on:
       - "settings.gradle.kts"
       - ".github/workflows/build-pixel8.yml"
 
+concurrency:
+  group: pixel-eco-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
