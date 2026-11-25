@@ -43,6 +43,22 @@ The native engine first attempts **WSS/443** with the Cloudflare base domain as 
 
 This new logic has not yet been verified in a standalone Pixel Eco APK. A similar WS/80 mechanism was confirmed in [Velora 0.1.5](https://github.com/AlekseyVinokurov/Velora/releases/tag/v0.1.5) on one Pixel 8/mobile network, but that test does not establish this separate app's behavior.
 
+## Release signing and updates
+
+Starting with the **1.2.4** candidate, official builds use a **permanent signing identity** encrypted in the repository. The passphrase is stored only in a protected GitHub Actions environment named `pixel-eco-release`. The [Bootstrap signing](.github/workflows/bootstrap-signing.yml) workflow creates the key **once** and refuses rotation. The owner stores a private copy of the passphrase (at least 32 characters) in a password manager and in GitHub Secret `PIXEL_ECO_RELEASE_KEY_PASSPHRASE`.
+
+The [Publish signed Pixel Eco APK](.github/workflows/release-pixel-eco.yml) workflow rebuilds Rust and Android on a **GitHub-hosted runner**, signs with that identity, verifies the pinned certificate SHA-256, and publishes an official GitHub Release. No local Android compilation or signing.
+
+**The previous `pixel8-stable-go-v1` APK used a temporary runner debug key that was not preserved. Android cannot upgrade it in place.** The first switch to the new signing identity requires uninstalling the old Pixel Eco, losing its settings. Subsequent official builds can update in place as long as the permanent identity and `applicationId` remain unchanged.
+
+The in-app updater accepts only stable GitHub Releases and checks the asset SHA-256, package ID, higher `versionCode` and exact installed signing certificate before launching the normal Android installer. This updater is **not yet present in the older published APK**.
+
+## Experimental transport controls and TXT diagnostics
+
+Independent settings allow testing **WS/80 opt-in**, a certificate-verified **kwsN TLS SNI** instead of the base-domain SNI, and **DoH-first** routing. They may degrade connectivity and do not guarantee DPI evasion.
+
+Enable **Record diagnostic log** before starting the proxy. An app-private, size-limited background capture records network events, endpoints, transport failures, current network type and WSS/WS80 counters. In **Logs**, tap **Save diagnostic TXT** to export using Android's file picker. The report can expose network IP/host metadata; review it before sharing. Secrets and long hex tokens are redacted on a best-effort basis.
+
 ## Install and use
 
 Get a published APK from [Releases](https://github.com/AlekseyVinokurov/tg-ws-proxy-android-lite/releases). For experimental PR builds, use the APK artifact in [Actions](https://github.com/AlekseyVinokurov/tg-ws-proxy-android-lite/actions).
@@ -53,7 +69,7 @@ Get a published APK from [Releases](https://github.com/AlekseyVinokurov/tg-ws-pr
 4. Verify real connectivity, including after switching between Wi-Fi and mobile data.
 5. Stop the proxy manually when it is not needed.
 
-**Updates and signing:** CI debug artifacts can be signed with different temporary keys and therefore may not install over an earlier published version. Do not delete an installed app merely to bypass an update/signature error; a consistent release-signing process must be established before claiming seamless in-place upgrades.
+
 
 ## Source, builds and maintenance
 
